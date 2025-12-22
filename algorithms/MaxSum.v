@@ -84,6 +84,7 @@ Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
   end.
 
 (** Specification for lexicographically minimal optimal solution *)
+(** We require that for any other optimal solution (s', il'), our il is lexicographically <= il' *)
 Definition lex_min_spec (l: list Z) (m: Z) (s: list Z) (il: list Z) : Prop :=
   max_sum_full_spec l m s /\
   is_indexed_elements l il s /\
@@ -126,4 +127,5 @@ Theorem max_sum_lex_correct :
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
+
 Admitted.
