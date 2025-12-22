@@ -42,13 +42,6 @@ Definition sum (l: list Z) : Z := fold_right Z.add 0 l.
 (* Definition of the feasible set *)
 Definition feasible_set (l :  list Z) (s : list Z) := non_adjacent_subseq s l.
 
-(* Definition max_value_spec (l:  list Z) (m: Z) : Prop :=
-  max_value_of_subset_with_default
-    (fun s => feasible_set l s)
-    (fun s => sum s)
-    0
-    m.  *)
-
 (* Maximum value of the set *)
 Definition max_value_spec (l: list Z) (m: Z) : Prop :=
   (exists s,
@@ -147,19 +140,21 @@ Qed.
 
 (* Auxiliary Lemma: Empty list is a subsequence of any list *)
 Lemma is_subsequence_nil : forall (l : list Z), is_subsequence l [].
-Proof. Admitted.
+Proof. 
+Admitted.
 
 (* Auxiliary Lemma: Empty list is increasing *)
 Lemma empty_is_increasing : 
   forall l, is_increasing_subseq [] l.
 Proof.
-  intros l. split.
+  intros l. 
+  split.
   - apply is_subsequence_nil.
   - unfold is_strictly_increasing. 
-    intros. (* Automatically introduce i, j and all inequality hypotheses *)
-    unfold Zlength in *. (* Unfold Zlength definition *)
-    simpl in *.          (* Calculate empty list length as 0 *)
-    lia.                 (* 0 <= i < j < 0 implies contradiction *)
+    intros. 
+    unfold Zlength in *. 
+    simpl in *.          
+    lia.                
 Qed.
 
 (* Auxiliary Lemma: Appending an element preserves increasing property *)
@@ -223,7 +218,6 @@ Definition LIS_lex_min_spec (l: list Z) (len: Z) (s: list Z) : Prop :=
 Definition LIS_lex_min (l: list Z) (least: Z): program (Z * list Z) :=
   st <- list_iter
     (fun n st =>
-      (* 修改 1: 先绑定到临时变量 res，再解构 *)
       res <- max_object_of_subset
         Z.le
         (fun '(n0, len0, l0, il0) =>
@@ -234,7 +228,6 @@ Definition LIS_lex_min (l: list Z) (least: Z): program (Z * list Z) :=
       ret (st ++ [(n, len0 + 1, l0 ++ [n], il0 ++ [Zlength l0])]))
     l
     [(least, 0, [], [])];;
-  (* 修改 2: 同样先绑定到 res，再解构 *)
   res <- max_object_of_subset
     Z.le
     (fun '(n0, len0, l0, il0) => In (n0, len0, l0, il0) st)
@@ -249,4 +242,4 @@ Theorem LIS_lex_min_correct :
     Hoare (LIS_lex_min l least)
       (fun '(len, s) => LIS_lex_min_spec l len s).
 Proof.
-Admitted. (* Highest difficulty proof, requires maintaining index info and proving lexicographical property *)
+Admitted. 
