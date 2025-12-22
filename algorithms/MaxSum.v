@@ -16,9 +16,10 @@ Local Open Scope monad.
 Local Open Scope Z.
 
 (* ========================================================================== *)
-(* 1. 原算法定义 *)
+(* 1. Original Algorithm Definition *)
 (* ========================================================================== *)
 
+(** max_sum calculates the maximum sum of non-adjacent subsequences *)
 Definition max_sum (l: list Z): program (Z * list Z) :=
   '(max1, ans1, _, _) <- list_iter
                            (fun n =>
@@ -33,23 +34,28 @@ Definition max_sum (l: list Z): program (Z * list Z) :=
   ret (max1, ans1).
 
 (* ========================================================================== *)
-(* 2. 基础定义 *)
+(* 2. Basic Definitions *)
 (* ========================================================================== *)
 
+(** Definition of non-adjacent indices: indices are strictly increasing and no two indices are adjacent *)
 Definition non_adjacent_in (il: list Z): Prop :=
   sincr il /\ forall i j, In i il -> In j il -> i + 1 <> j.
 
+(** s is a non-adjacent subsequence of l with index list il *)
 Definition non_adjacent_subseq (s l : list Z): Prop :=
   exists il, is_indexed_elements l il s /\ non_adjacent_in il.
 
+(** Definition of sum of a list *)
 Definition sum (l: list Z) : Z := fold_right Z.add 0 l.
 
+(** Definition of the feasible set: s is feasible if it is a non-adjacent subsequence of l *)
 Definition feasible_set (l : list Z) (s : list Z) := non_adjacent_subseq s l.
 
 (* ========================================================================== *)
-(* 3. 规范定义 *)
+(* 3. Specification Definitions *)
 (* ========================================================================== *)
 
+(** Specification for the maximum value: m is the maximum sum among all feasible subsequences *)
 Definition max_value_spec (l: list Z) (m: Z) : Prop :=
   (exists s,
       feasible_set l s /\
@@ -58,22 +64,17 @@ Definition max_value_spec (l: list Z) (m: Z) : Prop :=
   \/
   ((forall s, feasible_set l s -> sum s <= 0%Z) /\ m = 0%Z).
 
+(** Full specification: (m, s) is correct if m is the max sum and s is a feasible subsequence with sum m *)
 Definition max_sum_full_spec (l: list Z) (m: Z) (s: list Z) : Prop :=
   max_value_spec l m /\
   feasible_set l s /\
   sum s = m.
 
-Lemma Zlength_nonneg_list : forall (l: list Z), 0 <= Zlength l.
-Proof. 
-  intros. 
-  apply Zlength_nonneg.
-Qed.
-
 (* ========================================================================== *)
-(* 4. 难度任务 - 定理声明 *)
+(* 4. Difficulty Tasks - Theorem Statements *)
 (* ========================================================================== *)
 
-(* 第二档难度 *)
+(** Level 2: Prove that the algorithm returns the correct maximum value *)
 Theorem max_sum_value_correct :
   forall l,
     Hoare (max_sum l)
@@ -81,7 +82,7 @@ Theorem max_sum_value_correct :
 Proof.
 Admitted.
 
-(* 第三档难度 *)
+(** Level 3: Prove that the algorithm returns a correct feasible subsequence achieving the maximum value *)
 Theorem max_sum_full_correct :
   forall l,
     Hoare (max_sum l)
@@ -90,10 +91,10 @@ Proof.
 Admitted.
 
 (* ========================================================================== *)
-(* 5. 第四档难度 - 字典序最小 *)
+(* 5. Level 4 - Lexicographically Minimal Solution *)
 (* ========================================================================== *)
 
-(* 字典序比较 *)
+(** Lexicographical comparison of index lists *)
 Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
   match il1, il2 with
   | [], [] => False
@@ -103,7 +104,7 @@ Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
       i1 < i2 \/ (i1 = i2 /\ index_lex_lt il1' il2')
   end.
 
-(* 字典序最小规范 *)
+(** Specification for lexicographically minimal optimal solution *)
 Definition lex_min_spec (l: list Z) (m: Z) (s: list Z) (il: list Z) : Prop :=
   max_sum_full_spec l m s /\
   is_indexed_elements l il s /\
@@ -115,64 +116,57 @@ Definition lex_min_spec (l: list Z) (m: Z) (s: list Z) (il: list Z) : Prop :=
      sum s' = m -> 
      index_lex_lt il il' \/ il = il').
 
-(* 
-   修改后的算法：max_sum_lex
-   状态元组: (max1, ans1, il1, max2, ans2, il2, idx)
-   max1/ans1/il1: 当前最优解（和，序列，索引）
-   max2/ans2/il2: 不选前一个元素的最优解（和，序列，索引）
-   idx: 当前处理元素的索引
-*)
+(** Modified algorithm to find the lexicographically minimal solution *)
 Definition max_sum_lex (l: list Z): program (Z * list Z * list Z) :=
   '(max1, ans1, il1, _, _, _, _) <- 
     list_iter
       (fun n =>
          fun '(max1, ans1, il1, max2, ans2, il2, idx) =>
-           (* 方案1: 包含当前元素 n (前提是不包含前一个) -> 基础是从 (max2, ans2, il2) 转移而来 *)
+           (* Option 1: Include current element n (based on max2) *)
            let cand_inc_sum := max2 + n in
            let cand_inc_ans := ans2 ++ [n] in
            let cand_inc_il  := il2 ++ [idx] in
            
-           (* 方案2: 不包含当前元素 n -> 基础是从 (max1, ans1, il1) 转移而来 *)
+           (* Option 2: Exclude current element n (keep max1) *)
            let cand_exc_sum := max1 in
            let cand_exc_ans := ans1 in
            let cand_exc_il  := il1 in
 
-           (* 新的 max2/ans2/il2 将会变成当前的 max1/ans1/il1 (为了下一次迭代做准备) *)
+           (* Next max2 becomes current max1 *)
            let next_max2 := max1 in
            let next_ans2 := ans1 in
            let next_il2  := il1 in
            let next_idx  := idx + 1 in
 
-           (* 修复：嵌套 choice 以处理三个分支 *)
+           (* Nested choices to handle three cases *)
            choice
-             (* Case 1: 包含当前元素使得和严格更大 *)
+             (* Case 1: Including n gives strictly larger sum *)
              (assume (cand_inc_sum > cand_exc_sum);; 
               ret (cand_inc_sum, cand_inc_ans, cand_inc_il, next_max2, next_ans2, next_il2, next_idx))
              
              (choice
-                (* Case 2: 不包含当前元素使得和严格更大 *)
+                (* Case 2: Excluding n gives strictly larger sum *)
                 (assume (cand_inc_sum < cand_exc_sum);;
                  ret (cand_exc_sum, cand_exc_ans, cand_exc_il, next_max2, next_ans2, next_il2, next_idx))
                 
-                (* Case 3: 和相等，比较字典序 *)
+                (* Case 3: Sums are equal, compare lexicographical order *)
                 (assume (cand_inc_sum = cand_exc_sum);;
                   choice 
-                    (* 包含当前元素的索引序列字典序 更小 *)
+                    (* Including n gives smaller lexicographical index list *)
                     (assume (index_lex_lt cand_inc_il cand_exc_il);;
                      ret (cand_inc_sum, cand_inc_ans, cand_inc_il, next_max2, next_ans2, next_il2, next_idx))
                     
-                    (* 不包含当前元素的索引序列字典序 更小 或 相等 *)
-                    (* 如果字典序相等，通常优先选不包含的（因为较短），或者保持原样 *)
+                    (* Excluding n gives smaller or equal lexicographical index list *)
                     (assume (~ index_lex_lt cand_inc_il cand_exc_il);;
                      ret (cand_exc_sum, cand_exc_ans, cand_exc_il, next_max2, next_ans2, next_il2, next_idx))
                 )
              )
       )
       l
-      (0, [], [], 0, [], [], 0);; (* 初始状态，索引从 0 开始 *)
+      (0, [], [], 0, [], [], 0);; (* Initial state, index starts at 0 *)
   ret (max1, ans1, il1).
 
-(* 第四档难度定理 *)
+(** Level 4: Prove that the modified algorithm returns the lexicographically minimal optimal solution *)
 Theorem max_sum_lex_correct :
   forall l,
     Hoare (max_sum_lex l)
