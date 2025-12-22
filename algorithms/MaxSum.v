@@ -15,11 +15,6 @@ Import MonadNotation.
 Local Open Scope monad.
 Local Open Scope Z.
 
-(* ========================================================================== *)
-(* 1. Original Algorithm Definition *)
-(* ========================================================================== *)
-
-(** max_sum calculates the maximum sum of non-adjacent subsequences *)
 Definition max_sum (l: list Z): program (Z * list Z) :=
   '(max1, ans1, _, _) <- list_iter
                            (fun n =>
@@ -32,10 +27,6 @@ Definition max_sum (l: list Z): program (Z * list Z) :=
                            l
                            (0, [], 0, []);;
   ret (max1, ans1).
-
-(* ========================================================================== *)
-(* 2. Basic Definitions *)
-(* ========================================================================== *)
 
 (** Definition of non-adjacent indices: indices are strictly increasing and no two indices are adjacent *)
 Definition non_adjacent_in (il: list Z): Prop :=
@@ -50,10 +41,6 @@ Definition sum (l: list Z) : Z := fold_right Z.add 0 l.
 
 (** Definition of the feasible set: s is feasible if it is a non-adjacent subsequence of l *)
 Definition feasible_set (l : list Z) (s : list Z) := non_adjacent_subseq s l.
-
-(* ========================================================================== *)
-(* 3. Specification Definitions *)
-(* ========================================================================== *)
 
 (** Specification for the maximum value: m is the maximum sum among all feasible subsequences *)
 Definition max_value_spec (l: list Z) (m: Z) : Prop :=
@@ -70,10 +57,6 @@ Definition max_sum_full_spec (l: list Z) (m: Z) (s: list Z) : Prop :=
   feasible_set l s /\
   sum s = m.
 
-(* ========================================================================== *)
-(* 4. Difficulty Tasks - Theorem Statements *)
-(* ========================================================================== *)
-
 (** Level 2: Prove that the algorithm returns the correct maximum value *)
 Theorem max_sum_value_correct :
   forall l,
@@ -89,10 +72,6 @@ Theorem max_sum_full_correct :
       (fun '(m, s) => max_sum_full_spec l m s).
 Proof.
 Admitted.
-
-(* ========================================================================== *)
-(* 5. Level 4 - Lexicographically Minimal Solution *)
-(* ========================================================================== *)
 
 (** Lexicographical comparison of index lists *)
 Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
@@ -122,48 +101,23 @@ Definition max_sum_lex (l: list Z): program (Z * list Z * list Z) :=
     list_iter
       (fun n =>
          fun '(max1, ans1, il1, max2, ans2, il2, idx) =>
-           (* Option 1: Include current element n (based on max2) *)
-           let cand_inc_sum := max2 + n in
-           let cand_inc_ans := ans2 ++ [n] in
-           let cand_inc_il  := il2 ++ [idx] in
-           
-           (* Option 2: Exclude current element n (keep max1) *)
-           let cand_exc_sum := max1 in
-           let cand_exc_ans := ans1 in
-           let cand_exc_il  := il1 in
-
-           (* Next max2 becomes current max1 *)
-           let next_max2 := max1 in
-           let next_ans2 := ans1 in
-           let next_il2  := il1 in
-           let next_idx  := idx + 1 in
-
-           (* Nested choices to handle three cases *)
            choice
-             (* Case 1: Including n gives strictly larger sum *)
-             (assume (cand_inc_sum > cand_exc_sum);; 
-              ret (cand_inc_sum, cand_inc_ans, cand_inc_il, next_max2, next_ans2, next_il2, next_idx))
-             
+             (assume (max2 + n > max1);; 
+              ret (max2 + n, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, idx + 1))
              (choice
-                (* Case 2: Excluding n gives strictly larger sum *)
-                (assume (cand_inc_sum < cand_exc_sum);;
-                 ret (cand_exc_sum, cand_exc_ans, cand_exc_il, next_max2, next_ans2, next_il2, next_idx))
-                
-                (* Case 3: Sums are equal, compare lexicographical order *)
-                (assume (cand_inc_sum = cand_exc_sum);;
+                (assume (max2 + n < max1);;
+                 ret (max1, ans1, il1, max1, ans1, il1, idx + 1))
+                (assume (max2 + n = max1);;
                   choice 
-                    (* Including n gives smaller lexicographical index list *)
-                    (assume (index_lex_lt cand_inc_il cand_exc_il);;
-                     ret (cand_inc_sum, cand_inc_ans, cand_inc_il, next_max2, next_ans2, next_il2, next_idx))
-                    
-                    (* Excluding n gives smaller or equal lexicographical index list *)
-                    (assume (~ index_lex_lt cand_inc_il cand_exc_il);;
-                     ret (cand_exc_sum, cand_exc_ans, cand_exc_il, next_max2, next_ans2, next_il2, next_idx))
+                    (assume (index_lex_lt (il2 ++ [idx]) il1);;
+                     ret (max2 + n, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, idx + 1))
+                    (assume (~ index_lex_lt (il2 ++ [idx]) il1);;
+                     ret (max1, ans1, il1, max1, ans1, il1, idx + 1))
                 )
              )
       )
       l
-      (0, [], [], 0, [], [], 0);; (* Initial state, index starts at 0 *)
+      (0, [], [], 0, [], [], 0);; 
   ret (max1, ans1, il1).
 
 (** Level 4: Prove that the modified algorithm returns the lexicographically minimal optimal solution *)
