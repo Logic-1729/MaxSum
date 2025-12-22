@@ -310,4 +310,5 @@ Theorem max_sum_lex_correct :
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
+
 Admitted.
