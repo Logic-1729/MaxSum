@@ -131,6 +131,7 @@ Proof.
     rewrite Znth_error_app_l; auto.
 Qed.
 
+
 Lemma Znth_error_snoc_last: forall {A} (l: list A) x,
   Znth_error (l ++ [x]) (Zlength l) = Some x.
 Proof.
@@ -207,41 +208,46 @@ Proof.
                   max_value_spec done m1 /\ 
                   max_value_spec (removelast done) m2
               end).
-    + 
+    + (* Base case: empty list *)
       simpl. split; apply max_value_spec_nil.
-    + 
+    + (* Step case *)
       intros x done st.
+      (* Destruct state safely *)
       destruct st as [[[m1 ans1] m2] ans2].
       intros [Hm1 Hm2]. 
       apply Hoare_choice.
-      * 
+      * (* Case: max1 <= max2 + x *)
         eapply Hoare_assume_bind.
         intros H_le.
         apply Hoare_ret. 
         split. 
-        --
+        -- (* m1' = max2 + x. We need max_value_spec (done ++ [x]) (m2 + x) *)
+           (* Apply max_value_spec_app, then rewrite Z.max *)
            assert (Hmax:  max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
            { apply max_value_spec_app; auto. }
+           (* Now rewrite Z.max m1 (m2 + x) = m2 + x using H_le *)
            replace (Z.max m1 (m2 + x)) with (m2 + x) in Hmax.
            ++ exact Hmax.
            ++ symmetry. apply Z.max_r.  lia.
-        -- 
+        -- (* m2' = m1. We need max_value_spec (removelast (done ++ [x])) m1 *)
            rewrite removelast_app_x.
            auto.
+      * (* Case: max1 >= max2 + x *)
         eapply Hoare_assume_bind.
         intros H_ge.
         apply Hoare_ret. 
         split.  
-        -- 
+        -- (* m1' = m1. We need max_value_spec (done ++ [x]) m1 *)
            assert (Hmax: max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
            { apply max_value_spec_app; auto. }
+           (* Now rewrite Z.max m1 (m2 + x) = m1 using H_ge *)
            replace (Z.max m1 (m2 + x)) with m1 in Hmax. 
            ++ exact Hmax. 
            ++ symmetry. apply Z.max_l. lia.
-        -- 
+        -- (* m2' = m1. We need max_value_spec (removelast (done ++ [x])) m1 *)
            rewrite removelast_app_x.  
            auto.  
-  - 
+  - (* Final return *)
     intros st.  destruct st as [[[m1 ans1] m2] ans2].
     intros [Hm1 _].  
     apply Hoare_ret.  
@@ -310,5 +316,4 @@ Theorem max_sum_lex_correct :
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
-
 Admitted.
