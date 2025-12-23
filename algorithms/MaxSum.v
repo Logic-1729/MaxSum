@@ -238,7 +238,37 @@ Lemma Hoare_list_iter {A B: Type}:
             (fun b' => I (l_done ++ [x]) b')) ->
     Hoare (list_iter body l default)
           (fun b => I l b).
-Admitted.
+Proof.
+  intros body l default I H_init H_step.
+  assert (H_gen: forall l_rest b_curr l_done, 
+            I l_done b_curr -> 
+            Hoare (list_iter body l_rest b_curr) 
+                  (fun b_final => I (l_done ++ l_rest) b_final)).
+  {
+    induction l_rest as [|x xs IH].
+    - 
+      intros b_curr l_done H_inv.
+      simpl.
+      rewrite app_nil_r.
+      apply Hoare_ret.
+      auto.
+    - 
+      intros b_curr l_done H_inv.
+      simpl.
+      eapply Hoare_bind.
+      + 
+        apply H_step.
+        apply H_inv.
+      + 
+        intros b_next H_next.
+        specialize (IH b_next (l_done ++ [x]) H_next).
+        rewrite <- app_assoc in IH.
+        auto.
+  }
+  specialize (H_gen l default [] H_init).
+  simpl in H_gen.
+  apply H_gen.
+Qed.
 
 (** Level 2: Prove that the algorithm returns the correct maximum value *)
 Theorem max_sum_value_correct :
