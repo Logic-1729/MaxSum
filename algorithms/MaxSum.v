@@ -215,7 +215,60 @@ Lemma max_value_spec_app:
     max_value_spec l m1 ->
     max_value_spec (removelast l) m2 ->
     max_value_spec (l ++ [x]) (Z.max m1 (m2 + x)).
-Admitted.
+Proof.
+  intros l x m1 m2 Hspec1 Hspec2.
+  (* 将 max_value_spec 展开为统一的存在形式 *)
+  assert (H1: (exists s, feasible_set l s /\ sum s = m1) /\ (forall t, feasible_set l t -> sum t <= m1)).
+  {
+    destruct Hspec1 as [Hcase1 | Hcase2].
+    - destruct Hcase1 as [s [? [? ?]]]. split; [exists s; auto | auto].
+    - destruct Hcase2 as [Hle Heq]. split; [| subst; auto].
+      exists []. split.
+      + exists []. split. apply is_indexed_elements_nil. split; [simpl; auto | intros; contradiction].
+      + subst. reflexivity.
+  }
+  destruct H1 as [[s1 [Hfeas1 Hsum1]] Hmax1].
+
+  assert (H2: (exists s, feasible_set (removelast l) s /\ sum s = m2) /\ (forall t, feasible_set (removelast l) t -> sum t <= m2)).
+  {
+    destruct Hspec2 as [Hcase1 | Hcase2].
+    - destruct Hcase1 as [s [? [? ?]]]. split; [exists s; auto | auto].
+    - destruct Hcase2 as [Hle Heq]. split; [| subst; auto].
+      exists []. split.
+      + exists []. split. apply is_indexed_elements_nil. split; [simpl; auto | intros; contradiction].
+      + subst. reflexivity.
+  }
+  destruct H2 as [[s2 [Hfeas2 Hsum2]] Hmax2].
+
+  (* 对 Z.max 进行分类讨论 *)
+  apply Z.max_case_strong; intros Hle.
+  - (* Case m2 + x <= m1 *)
+    left. exists s1. split; [| split].
+    + apply feasible_set_app_x_l. assumption.
+    + assumption.
+    + intros t Ht.
+      apply feasible_set_app_x_inv in Ht.
+      destruct Ht as [Ht | [t' [Heq Ht']]].
+      * (* t 是 l 的子序列 *)
+        apply Hmax1. assumption.
+      * (* t 是 removelast l 的子序列 + x *)
+        subst t. rewrite sum_app. simpl. rewrite Z.add_0_r.
+        specialize (Hmax2 t' Ht').
+        lia.
+  - (* Case m1 <= m2 + x *)
+    left. exists (s2 ++ [x]). split; [| split].
+    + apply feasible_set_app_x_r. assumption.
+    + rewrite sum_app. simpl. rewrite Z.add_0_r. rewrite Hsum2. reflexivity.
+    + intros t Ht.
+      apply feasible_set_app_x_inv in Ht.
+      destruct Ht as [Ht | [t' [Heq Ht']]].
+      * (* t 是 l 的子序列 *)
+        specialize (Hmax1 t Ht). lia.
+      * (* t 是 removelast l 的子序列 + x *)
+        subst t. rewrite sum_app. simpl. rewrite Z.add_0_r.
+        specialize (Hmax2 t' Ht').
+        lia.
+Qed.
 
 Lemma removelast_app_x: forall {A} (l: list A) x,
   removelast (l ++ [x]) = l.
