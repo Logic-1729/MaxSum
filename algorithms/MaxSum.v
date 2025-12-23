@@ -264,8 +264,6 @@ Proof.
   intros l x s H.
   unfold feasible_set, non_adjacent_subseq in *.
   destruct H as [il [Hidx [Hsincr Hgap]]].  
-  
-  (* 构造新的索引列表：il ++ [Zlength l] *)
   exists (il ++ [Zlength l]).
   split; [| split]. 
   
@@ -402,13 +400,50 @@ Proof.
     + discriminate Hnth0.
 Qed. 
 
-Lemma feasible_set_app_x_inv_idx_bound: forall (l0 :  list Z) (a0 x : Z) il' i,
+Lemma feasible_set_app_x_inv_idx_bound: forall (l0 :   list Z) (a0 x : Z) il' i,
   sincr (il' ++ [Zlength (l0 ++ [a0])]) ->
+  (forall i j, In i (il' ++ [Zlength (l0 ++ [a0])]) -> 
+               In j (il' ++ [Zlength (l0 ++ [a0])]) -> 
+               i + 1 <> j) ->
   In i il' ->
   (exists s1, is_indexed_elements ((l0 ++ [a0]) ++ [x]) il' s1) ->
   (exists a, Znth_error ((l0 ++ [a0]) ++ [x]) i = Some a) ->
   i < Zlength l0.
-Admitted.
+Proof. 
+  intros l0 a0 x il' i Hsincr Hgap Hin_i [s1 Hidx] _. 
+  assert (Hi_lt:  i < Zlength (l0 ++ [a0])).
+  { apply sincr_app_singleton_inv with (l1 := il'); auto. }
+  apply is_indexed_elements_range in Hidx.
+  rewrite Forall_forall in Hidx.
+  specialize (Hidx i Hin_i) as [Hi_ge _].
+  assert (Hneq: i + 1 <> Zlength (l0 ++ [a0])).
+  {
+    apply Hgap.
+    - apply in_app_iff. left. exact Hin_i.
+    - apply in_app_iff. right. simpl. left.  reflexivity. 
+  }
+  unfold Zlength in *.
+  rewrite length_app in Hi_lt, Hneq. 
+  simpl in Hi_lt, Hneq. 
+  lia.
+Qed. 
+
+Lemma sincr_app_cons_inv1:  forall l1 x,
+  sincr (l1 ++ [x]) ->
+  sincr l1.
+Proof.
+  intros l1 x Hsincr.
+  destruct l1 as [| a l1']. 
+  - simpl.  auto.
+  - simpl in Hsincr |- *.
+    revert a Hsincr.
+    induction l1' as [| b l1'' IH]; intros a Hsincr. 
+    + simpl in *. auto.
+    + simpl in Hsincr |- *.
+      destruct Hsincr as [Hab Hrest].
+      split; [exact Hab |].
+      apply IH.  exact Hrest.
+Qed. 
 
 Lemma feasible_set_app_x_inv_i_last_eq:  forall l x s il' i_last,
   i_last = Zlength l ->
@@ -416,7 +451,79 @@ Lemma feasible_set_app_x_inv_i_last_eq:  forall l x s il' i_last,
   (forall i j, In i (il' ++ [i_last]) -> In j (il' ++ [i_last]) -> i + 1 <> j) ->
   is_indexed_elements (l ++ [x]) (il' ++ [i_last]) s ->
   exists s', s = s' ++ [x] /\ feasible_set (removelast l) s'.
-Admitted.
+Proof.
+  intros l x s il' i_last Heq_idx Hsincr Hgap Hidx.
+  apply is_indexed_elements_app_inv_l in Hidx.
+  destruct Hidx as [s1 [s2 [Hidx1 [Hidx2 Heq_s]]]].   
+  subst s. 
+  apply is_indexed_elements_cons_inv_l in Hidx2.
+  destruct Hidx2 as [a [s2' [Hnth_last [Hidx2' Heq_s2]]]]. 
+  apply is_indexed_elements_nil_inv_l in Hidx2'.  
+  subst s2 s2'. 
+  rewrite Heq_idx in Hnth_last. 
+  rewrite Znth_error_snoc_last in Hnth_last.  
+  injection Hnth_last as Heq_a. 
+  subst a. 
+  exists s1.
+  split; [reflexivity |].  
+  unfold feasible_set, non_adjacent_subseq.   
+  exists il'. 
+  split; [| split]. 
+  -
+    destruct (list_snoc_destruct l) as [Heq_l | [a0 [l0 Heq_l]]].  
+    + 
+      subst l.
+      simpl in Heq_idx. 
+      unfold Zlength in Heq_idx.  
+      simpl in Heq_idx.  
+      subst i_last. 
+      apply feasible_set_app_x_inv_l_empty in Hidx1 as [Hil' Hs1]; auto. 
+      subst il' s1.
+      simpl. 
+      apply is_indexed_elements_nil.  
+    + 
+      subst l.
+      rewrite removelast_app by discriminate. 
+      simpl.  rewrite app_nil_r. 
+      assert (Hidx1_saved:  is_indexed_elements ((l0 ++ [a0]) ++ [x]) il' s1) by exact Hidx1.
+      eapply Forall2_congr; [| exact Hidx1].   
+      intros i a Hin_i Hin_s Hnth. 
+      assert (Hlt:  i < Zlength l0).
+      {
+        eapply feasible_set_app_x_inv_idx_bound with (a0 := a0) (x := x) (il' := il').
+        - 
+          assert (Heq_i_last: i_last = Zlength (l0 ++ [a0])).
+          { rewrite <- Heq_idx.  reflexivity.  }
+          rewrite <- Heq_i_last.
+          exact Hsincr.
+        - 
+          intros i' j' Hi' Hj'.  
+          assert (Heq_i_last:   i_last = Zlength (l0 ++ [a0])).
+          { rewrite <- Heq_idx. reflexivity. }
+          rewrite <- Heq_i_last in Hi', Hj'.
+          apply Hgap; auto.  
+        - exact Hin_i.  
+        - exists s1. exact Hidx1_saved.  
+        - exists a.   exact Hnth. 
+      }
+      symmetry. 
+      assert (Hnth_range:  0 <= i < Zlength ((l0 ++ [a0]) ++ [x])).
+      { apply Znth_error_range in Hnth.  exact Hnth. }
+      replace ((l0 ++ [a0]) ++ [x]) with (l0 ++ ([a0] ++ [x])) in Hnth by (rewrite app_assoc; reflexivity).
+      rewrite Znth_error_app_l in Hnth. 
+      * symmetry.  exact Hnth.
+      * split. 
+        -- destruct Hnth_range.  lia.
+        -- exact Hlt.
+  - 
+    apply sincr_app_cons_inv1 with (x := i_last).
+    exact Hsincr.
+  - 
+    intros i j Hi Hj. 
+    apply Hgap. 
+    + apply in_app_iff.   left.  exact Hi. 
+    + apply in_app_iff. left.  exact Hj. 
+Qed.  
 
 Lemma feasible_set_app_x_inv_i_last_neq: forall l x s il' i_last,
   i_last <> Zlength l ->
