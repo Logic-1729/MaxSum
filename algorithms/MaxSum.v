@@ -64,7 +64,23 @@ Proof.
 Qed.
 
 Lemma feasible_set_nil: forall s, feasible_set [] s -> s = [].
-Admitted.
+Proof. 
+  intros s H.
+  unfold feasible_set, non_adjacent_subseq in H.  
+  destruct H as [il [Hidx _]].  
+  destruct s as [| a s'].
+  - reflexivity. 
+  - exfalso. 
+    apply is_indexed_elements_cons_inv_r in Hidx. 
+    destruct Hidx as [i [il' [_ [Hnth _]]]].
+    unfold Znth_error in Hnth.
+    destruct (Z_le_gt_dec 0 i).
+    + 
+      assert (nth_error (@nil Z) (Z.to_nat i) = None) by (destruct (Z.to_nat i); reflexivity).
+      congruence.
+    + 
+      discriminate Hnth. 
+Qed.
 
 Lemma feasible_set_nil_intro: feasible_set [] [].
 Proof.
@@ -144,7 +160,39 @@ Qed.
 Lemma is_indexed_elements_extend: forall (l: list Z) x s (il: list Z),
   is_indexed_elements (removelast l) il s ->
   is_indexed_elements (l ++ [x]) il s.
-Admitted.
+Proof.
+  intros.
+  destruct l.
+  - (* Case l = [] *)
+    simpl in H.
+    unfold is_indexed_elements in *.
+    destruct il.
+    + inversion H; subst. apply Forall2_nil.
+    + inversion H; subst.
+      unfold Znth_error in H2.
+      destruct (Z_le_gt_dec 0 z).
+      * destruct (Z.to_nat z); simpl in H2; discriminate.
+      * discriminate.
+  - 
+    unfold is_indexed_elements in *.
+    eapply Forall2_congr; [| eauto].
+    intros i a0 Hin_i Hin_s Hnth.
+    assert (Hneq: z :: l <> []) by congruence.
+    destruct (exists_last Hneq) as [l' [a Heq]].
+    rewrite Heq in Hnth.
+    rewrite Heq.
+    
+    rewrite removelast_app in Hnth; [| discriminate].
+    simpl in Hnth.
+    rewrite app_nil_r in Hnth.
+    rewrite <- app_assoc.
+    rewrite Znth_error_app_l.
+    + 
+      assumption.
+    + 
+      apply Znth_error_range in Hnth.
+      assumption.
+Qed.
 
 Lemma sincr_extend_last: forall (il: list Z) (last_idx: Z),
   sincr il ->
