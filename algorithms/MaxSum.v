@@ -251,11 +251,114 @@ Lemma feasible_set_app_x_r: forall l x s,
   feasible_set (removelast l) s -> feasible_set (l ++ [x]) (s ++ [x]).
 Admitted.
 
+Lemma feasible_set_app_x_inv_empty_il: forall l x s,
+  is_indexed_elements (l ++ [x]) [] s ->
+  feasible_set l s. 
+Proof.
+  intros l x s Hidx.
+  apply is_indexed_elements_nil_inv_l in Hidx. 
+  subst s.
+  exists [].
+  split. 
+  - apply is_indexed_elements_nil.
+  - split; simpl; auto.
+Qed. 
+
+Lemma feasible_set_app_x_inv_l_empty:   forall (x:   Z) il' s1,
+  sincr (il' ++ [0]) ->
+  is_indexed_elements ([] ++ [x]) il' s1 ->
+  il' = [] /\ s1 = [].  
+Proof.
+  intros x il' s1 Hsincr Hidx1.
+  simpl in Hidx1.
+  destruct il' as [| i0 il''].   
+  - split; auto.
+    apply is_indexed_elements_nil_inv_l in Hidx1.  auto.
+  - exfalso.  
+    apply is_indexed_elements_cons_inv_l in Hidx1.
+    destruct Hidx1 as [a1 [s1' [Hnth0 _]]].  
+    unfold Znth_error in Hnth0.
+    destruct (Z_le_gt_dec 0 i0).
+    + simpl in Hsincr.   
+      destruct il'' as [| i1 il'''].  
+      * simpl in Hsincr. 
+        destruct Hsincr as [Hi0_lt_0 _].   
+        lia.
+      * simpl in Hsincr. 
+        destruct Hsincr as [Hi0_lt_i1 Hrest].  
+        assert (Hi1_lt_0: i1 < 0).
+        {
+          clear -Hrest. 
+          assert (Haux: forall il y,
+                     sincr_aux il y ->
+                     forall j, In j il -> y < j).
+          {
+            clear.  
+            induction il as [| a il' IH]; intros y Hsaux j Hin.
+            - inversion Hin. 
+            - simpl in Hsaux. destruct Hsaux as [Hya Hrest'].    
+              simpl in Hin.  destruct Hin as [Heq | Hin'].  
+              + subst.  exact Hya. 
+              + assert (Ha_lt_j:   a < j) by (apply IH; auto). lia.
+          }
+          apply (Haux (il''' ++ [0]) i1 Hrest 0).
+          apply in_app_iff.    right.  simpl. left.  reflexivity. 
+        }
+        lia. 
+    + discriminate Hnth0.
+Qed. 
+
+Lemma feasible_set_app_x_inv_idx_bound: forall (l0 :  list Z) (a0 x : Z) il' i,
+  sincr (il' ++ [Zlength (l0 ++ [a0])]) ->
+  In i il' ->
+  (exists s1, is_indexed_elements ((l0 ++ [a0]) ++ [x]) il' s1) ->
+  (exists a, Znth_error ((l0 ++ [a0]) ++ [x]) i = Some a) ->
+  i < Zlength l0.
+Admitted.
+
+Lemma feasible_set_app_x_inv_i_last_eq:  forall l x s il' i_last,
+  i_last = Zlength l ->
+  sincr (il' ++ [i_last]) ->
+  (forall i j, In i (il' ++ [i_last]) -> In j (il' ++ [i_last]) -> i + 1 <> j) ->
+  is_indexed_elements (l ++ [x]) (il' ++ [i_last]) s ->
+  exists s', s = s' ++ [x] /\ feasible_set (removelast l) s'.
+Admitted.
+
+(* 辅助引理6：当 i_last <> Zlength l 时的情况 *)
+Lemma feasible_set_app_x_inv_i_last_neq: forall l x s il' i_last,
+  i_last <> Zlength l ->
+  sincr (il' ++ [i_last]) ->
+  (forall i j, In i (il' ++ [i_last]) -> In j (il' ++ [i_last]) -> i + 1 <> j) ->
+  is_indexed_elements (l ++ [x]) (il' ++ [i_last]) s ->
+  feasible_set l s.
+Admitted.
+
 Lemma feasible_set_app_x_inv:  forall l x s,
   feasible_set (l ++ [x]) s ->
   feasible_set l s \/
   (exists s', s = s' ++ [x] /\ feasible_set (removelast l) s').
-Admitted.
+Proof.
+  intros l x s H.
+  unfold feasible_set, non_adjacent_subseq in H.
+  destruct H as [il [Hidx [Hsincr Hgap]]].   
+  
+  destruct (list_snoc_destruct il) as [Heq_il | [i_last [il' Heq_il]]]; subst il.
+  
+  - (* Case 1: il = [] *)
+    left.
+    apply (feasible_set_app_x_inv_empty_il l x s); auto.
+  
+  - (* Case 2: il = il' ++ [i_last] *)
+    destruct (Z.eq_dec i_last (Zlength l)) as [Heq_idx | Hneq_idx]. 
+    
+    + (* i_last = Zlength l *)
+      right.
+      eapply (feasible_set_app_x_inv_i_last_eq l x s il' i_last); eassumption.
+    
+    + (* i_last <> Zlength l *)
+      left.
+      eapply (feasible_set_app_x_inv_i_last_neq l x s il' i_last); eassumption. 
+Qed.
 
 Lemma max_value_spec_app:
   forall l x m1 m2,
