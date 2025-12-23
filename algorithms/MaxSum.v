@@ -247,9 +247,103 @@ Proof.
       destruct l1' as [| b l1'']; simpl in *; tauto.
 Qed. 
 
-Lemma feasible_set_app_x_r: forall l x s,
+Lemma last_in_list:  forall {A} (l:  list A) (d: A),
+  l <> [] -> In (last l d) l.
+Proof.
+  intros A l d Hneq.
+  induction l as [| a l' IH].
+  - contradiction.
+  - destruct l' as [| b l'']. 
+    + simpl.  left. reflexivity.
+    + simpl. right. apply IH.  discriminate.
+Qed. 
+
+Lemma feasible_set_app_x_r:  forall l x s,
   feasible_set (removelast l) s -> feasible_set (l ++ [x]) (s ++ [x]).
-Admitted.
+Proof.
+  intros l x s H.
+  unfold feasible_set, non_adjacent_subseq in *.
+  destruct H as [il [Hidx [Hsincr Hgap]]].  
+  
+  (* 构造新的索引列表：il ++ [Zlength l] *)
+  exists (il ++ [Zlength l]).
+  split; [| split]. 
+  
+  - 
+    apply is_indexed_elements_app. 
+    + 
+      apply is_indexed_elements_extend. 
+      exact Hidx. 
+    + 
+      apply is_indexed_elements_cons.
+      * 
+        apply Znth_error_snoc_last.
+      *
+        apply is_indexed_elements_nil. 
+  
+  - 
+    apply sincr_extend_last. 
+    + exact Hsincr.
+    + destruct il as [| i0 il']. 
+      * left. reflexivity. 
+      * right. 
+        apply is_indexed_elements_range in Hidx. 
+        rewrite Forall_forall in Hidx.
+        assert (Hin_last: In (last (i0 :: il') 0) (i0 :: il')).
+        { apply last_in_list.  discriminate. }
+        specialize (Hidx _ Hin_last).
+        destruct (list_snoc_destruct l) as [Heq_l | [a [l0 Heq_l]]].
+        -- 
+           subst l.  simpl in Hidx.  unfold Zlength in *. simpl in *. lia.
+        -- 
+           subst l. 
+           rewrite removelast_app in Hidx by discriminate.
+           simpl in Hidx. rewrite app_nil_r in Hidx. 
+           rewrite Zlength_app.  unfold Zlength in *. simpl in *.  lia.
+  
+  - 
+    intros i j Hi Hj.
+    apply in_app_or in Hi. 
+    apply in_app_or in Hj.
+    destruct Hi as [Hi_il | Hi_last];
+    destruct Hj as [Hj_il | Hj_last].   
+    + 
+      apply Hgap; auto.
+    + 
+      simpl in Hj_last. 
+      destruct Hj_last as [Heq | Hf]; [| contradiction]. 
+      subst j.
+      apply is_indexed_elements_range in Hidx.
+      rewrite Forall_forall in Hidx.
+      specialize (Hidx _ Hi_il).
+      destruct (list_snoc_destruct l) as [Heq_l | [a [l0 Heq_l]]]. 
+      * subst l.  simpl in Hidx. unfold Zlength in *. simpl in *. lia.  
+      * subst l. 
+        rewrite removelast_app in Hidx by discriminate.  
+        simpl in Hidx.   rewrite app_nil_r in Hidx.
+        rewrite Zlength_app. unfold Zlength in *. simpl in *.
+        lia.  
+    + 
+      simpl in Hi_last.
+      destruct Hi_last as [Heq | Hf]; [| contradiction].  
+      subst i. 
+      apply is_indexed_elements_range in Hidx. 
+      rewrite Forall_forall in Hidx.
+      specialize (Hidx _ Hj_il).
+      destruct (list_snoc_destruct l) as [Heq_l | [a [l0 Heq_l]]].  
+      * subst l.  simpl in Hidx. unfold Zlength in *. simpl in *.  lia.
+      * subst l.
+        rewrite removelast_app in Hidx by discriminate.
+        simpl in Hidx. rewrite app_nil_r in Hidx. 
+        rewrite Zlength_app. unfold Zlength in *. simpl in *. 
+        lia. 
+    + 
+      simpl in Hi_last, Hj_last.
+      destruct Hi_last as [Heq_i | Hf]; [| contradiction].
+      destruct Hj_last as [Heq_j | Hf]; [| contradiction].
+      subst i j.
+      lia. 
+Qed. 
 
 Lemma feasible_set_app_x_inv_empty_il: forall l x s,
   is_indexed_elements (l ++ [x]) [] s ->
@@ -324,7 +418,6 @@ Lemma feasible_set_app_x_inv_i_last_eq:  forall l x s il' i_last,
   exists s', s = s' ++ [x] /\ feasible_set (removelast l) s'.
 Admitted.
 
-(* 辅助引理6：当 i_last <> Zlength l 时的情况 *)
 Lemma feasible_set_app_x_inv_i_last_neq: forall l x s il' i_last,
   i_last <> Zlength l ->
   sincr (il' ++ [i_last]) ->
@@ -344,18 +437,18 @@ Proof.
   
   destruct (list_snoc_destruct il) as [Heq_il | [i_last [il' Heq_il]]]; subst il.
   
-  - (* Case 1: il = [] *)
+  - 
     left.
     apply (feasible_set_app_x_inv_empty_il l x s); auto.
   
-  - (* Case 2: il = il' ++ [i_last] *)
+  -
     destruct (Z.eq_dec i_last (Zlength l)) as [Heq_idx | Hneq_idx]. 
     
-    + (* i_last = Zlength l *)
+    + 
       right.
       eapply (feasible_set_app_x_inv_i_last_eq l x s il' i_last); eassumption.
     
-    + (* i_last <> Zlength l *)
+    + 
       left.
       eapply (feasible_set_app_x_inv_i_last_neq l x s il' i_last); eassumption. 
 Qed.
