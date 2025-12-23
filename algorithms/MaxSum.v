@@ -531,7 +531,64 @@ Lemma feasible_set_app_x_inv_i_last_neq: forall l x s il' i_last,
   (forall i j, In i (il' ++ [i_last]) -> In j (il' ++ [i_last]) -> i + 1 <> j) ->
   is_indexed_elements (l ++ [x]) (il' ++ [i_last]) s ->
   feasible_set l s.
-Admitted.
+Proof.
+  intros l x s il' i_last Hneq Hsincr Hgap Hidx. 
+  apply is_indexed_elements_app_inv_l in Hidx.
+  destruct Hidx as [s1 [s2 [Hidx1 [Hidx2 Heq_s]]]].
+  subst s. 
+  apply is_indexed_elements_cons_inv_l in Hidx2.
+  destruct Hidx2 as [a [s2' [Hnth_last [Hidx2' Heq_s2]]]].
+  apply is_indexed_elements_nil_inv_l in Hidx2'. 
+  subst s2 s2'.
+  assert (Hi_last_range:  0 <= i_last < Zlength (l ++ [x])).
+  { apply Znth_error_range in Hnth_last. exact Hnth_last. }
+  assert (Hi_last_lt: i_last < Zlength l).
+  {
+    destruct Hi_last_range as [_ Hi_ub].
+    rewrite Zlength_app in Hi_ub.
+    unfold Zlength in Hi_ub at 2.
+    simpl in Hi_ub. 
+    lia.
+  }
+  assert (Hnth_last_l: Znth_error l i_last = Some a).
+  {
+    assert (Hnth_last_copy: Znth_error (l ++ [x]) i_last = Some a) by exact Hnth_last. 
+    rewrite Znth_error_app_l in Hnth_last_copy. 
+    - exact Hnth_last_copy.
+    - split. 
+      + apply Znth_error_range in Hnth_last.  lia.
+      + exact Hi_last_lt.
+  }
+  unfold feasible_set, non_adjacent_subseq. 
+  exists (il' ++ [i_last]).
+  split; [| split].
+  - 
+    apply is_indexed_elements_app. 
+    + 
+      eapply Forall2_congr; [| exact Hidx1].
+      intros i a' Hin_i Hin_s Hnth.  
+      symmetry. 
+      assert (Hi_lt_last: i < i_last).
+      { apply sincr_app_singleton_inv with (l1 := il'); auto. }
+      assert (Hnth_l: Znth_error l i = Some a').
+      {
+        assert (Hnth_copy: Znth_error (l ++ [x]) i = Some a') by exact Hnth. 
+        rewrite Znth_error_app_l in Hnth_copy.
+        - exact Hnth_copy. 
+        - split.
+          + apply Znth_error_range in Hnth.  lia.
+          + lia.
+      }
+      symmetry. exact Hnth_l.
+    + 
+      apply is_indexed_elements_cons. 
+      * exact Hnth_last_l.
+      * apply is_indexed_elements_nil. 
+  - 
+    exact Hsincr.
+  - 
+    exact Hgap. 
+Qed.
 
 Lemma feasible_set_app_x_inv:  forall l x s,
   feasible_set (l ++ [x]) s ->
