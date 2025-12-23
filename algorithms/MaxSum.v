@@ -198,7 +198,34 @@ Lemma sincr_extend_last: forall (il: list Z) (last_idx: Z),
   sincr il ->
   (il = [] \/ last il 0 < last_idx) ->
   sincr (il ++ [last_idx]).
-Admitted.
+Lemma sincr_extend_last: forall (il: list Z) (last_idx: Z),
+  sincr il ->
+  (il = [] \/ last il 0 < last_idx) ->
+  sincr (il ++ [last_idx]).
+Proof.
+  intros il last_idx Hsincr Hlast.
+  destruct il as [| i0 il']. 
+  - 
+    simpl.  auto.
+  - 
+    simpl in *.
+    destruct Hlast as [Heq | Hlt].
+    + 
+      discriminate Heq.
+    + 
+      revert i0 Hsincr Hlt.
+      induction il' as [| i1 il'' IH]; intros i0 Hsincr Hlt.
+      * 
+        simpl in *.
+        simpl in Hlt.
+        split; auto.
+      * 
+        simpl in Hsincr.
+        destruct Hsincr as [Hi0_i1 Hrest]. 
+        simpl. 
+        split; [exact Hi0_i1 | ].
+        apply IH; auto.
+Qed.
 
 Lemma sincr_app_singleton_inv: forall l1 x,
   sincr (l1 ++ [x]) ->
@@ -360,42 +387,43 @@ Proof.
                   max_value_spec done m1 /\ 
                   max_value_spec (removelast done) m2
               end).
-    + 
-      simpl. split; apply max_value_spec_nil.
-    +
+    + (* Base case *)
+      simpl. split; apply max_value_spec_nil. 
+    + (* Step case *)
       intros x done st.
       destruct st as [[[m1 ans1] m2] ans2].
       intros [Hm1 Hm2]. 
-      apply Hoare_choice.
-        eapply Hoare_assume_bind.
-        intros H_le.
-        apply Hoare_ret. 
+      apply Hoare_choice. 
+      * (* First choice: max1 <= max2 + x *)
+        eapply Hoare_assume_bind. 
+        intros H_le. 
+        apply Hoare_ret.  
         split. 
-        -- 
-           assert (Hmax:  max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
-           { apply max_value_spec_app; auto. }
-           replace (Z.max m1 (m2 + x)) with (m2 + x) in Hmax.
-           ++ exact Hmax.
-           ++ symmetry. apply Z.max_r.  lia.
-        -- 
-           rewrite removelast_app_x.
-           auto.
-      *
-        eapply Hoare_assume_bind.
-        intros H_ge.
-        apply Hoare_ret. 
-        split.  
-        -- 
+        -- (* max_value_spec (done ++ [x]) (m2 + x) *)
            assert (Hmax: max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
            { apply max_value_spec_app; auto. }
-           replace (Z.max m1 (m2 + x)) with m1 in Hmax. 
+           replace (Z.max m1 (m2 + x)) with (m2 + x) in Hmax.
+           ++ exact Hmax. 
+           ++ symmetry. apply Z.max_r. lia. 
+        -- (* max_value_spec (removelast (done ++ [x])) m1 *)
+           rewrite removelast_app_x.
+           auto.
+      * (* Second choice: max1 >= max2 + x *)
+        eapply Hoare_assume_bind. 
+        intros H_ge. 
+        apply Hoare_ret. 
+        split.  
+        -- (* max_value_spec (done ++ [x]) m1 *)
+           assert (Hmax: max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
+           { apply max_value_spec_app; auto. }
+           replace (Z.max m1 (m2 + x)) with m1 in Hmax.  
            ++ exact Hmax. 
            ++ symmetry. apply Z.max_l. lia.
-        -- 
+        -- (* max_value_spec (removelast (done ++ [x])) m1 *)
            rewrite removelast_app_x.  
            auto.  
-  - 
-    intros st.  destruct st as [[[m1 ans1] m2] ans2].
+  - (* Final return *)
+    intros st. destruct st as [[[m1 ans1] m2] ans2].
     intros [Hm1 _].  
     apply Hoare_ret.  
     exact Hm1.
