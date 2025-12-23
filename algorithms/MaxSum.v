@@ -200,11 +200,35 @@ Lemma sincr_extend_last: forall (il: list Z) (last_idx: Z),
   sincr (il ++ [last_idx]).
 Admitted.
 
+Lemma sincr_app_singleton_inv: forall l1 x,
+  sincr (l1 ++ [x]) ->
+  forall i, In i l1 -> i < x.
+Proof.
+  induction l1 as [| a l1' IH]; intros x Hsincr i Hin.
+  - inversion Hin.
+  - simpl in Hsincr.
+    simpl in Hin. 
+    destruct Hin as [Heq | Hin']. 
+    + subst i.
+      destruct l1' as [| b l1''].
+      * 
+        simpl in Hsincr. 
+        lia.
+      * 
+        simpl in Hsincr. 
+        destruct Hsincr as [Hab Hrest].
+        assert (Hbx: b < x).
+        { apply (IH x); auto. left; reflexivity. }
+        lia.
+    + apply IH; auto.
+      destruct l1' as [| b l1'']; simpl in *; tauto.
+Qed. 
+
 Lemma feasible_set_app_x_r: forall l x s,
   feasible_set (removelast l) s -> feasible_set (l ++ [x]) (s ++ [x]).
 Admitted.
 
-Lemma feasible_set_app_x_inv: forall l x s,
+Lemma feasible_set_app_x_inv:  forall l x s,
   feasible_set (l ++ [x]) s ->
   feasible_set l s \/
   (exists s', s = s' ++ [x] /\ feasible_set (removelast l) s').
@@ -217,7 +241,6 @@ Lemma max_value_spec_app:
     max_value_spec (l ++ [x]) (Z.max m1 (m2 + x)).
 Proof.
   intros l x m1 m2 Hspec1 Hspec2.
-  (* 将 max_value_spec 展开为统一的存在形式 *)
   assert (H1: (exists s, feasible_set l s /\ sum s = m1) /\ (forall t, feasible_set l t -> sum t <= m1)).
   {
     destruct Hspec1 as [Hcase1 | Hcase2].
@@ -239,32 +262,30 @@ Proof.
       + subst. reflexivity.
   }
   destruct H2 as [[s2 [Hfeas2 Hsum2]] Hmax2].
-
-  (* 对 Z.max 进行分类讨论 *)
   apply Z.max_case_strong; intros Hle.
-  - (* Case m2 + x <= m1 *)
+  - 
     left. exists s1. split; [| split].
     + apply feasible_set_app_x_l. assumption.
     + assumption.
     + intros t Ht.
       apply feasible_set_app_x_inv in Ht.
       destruct Ht as [Ht | [t' [Heq Ht']]].
-      * (* t 是 l 的子序列 *)
+      * 
         apply Hmax1. assumption.
-      * (* t 是 removelast l 的子序列 + x *)
+      *
         subst t. rewrite sum_app. simpl. rewrite Z.add_0_r.
         specialize (Hmax2 t' Ht').
         lia.
-  - (* Case m1 <= m2 + x *)
+  - 
     left. exists (s2 ++ [x]). split; [| split].
     + apply feasible_set_app_x_r. assumption.
     + rewrite sum_app. simpl. rewrite Z.add_0_r. rewrite Hsum2. reflexivity.
     + intros t Ht.
       apply feasible_set_app_x_inv in Ht.
       destruct Ht as [Ht | [t' [Heq Ht']]].
-      * (* t 是 l 的子序列 *)
+      * 
         specialize (Hmax1 t Ht). lia.
-      * (* t 是 removelast l 的子序列 + x *)
+      * 
         subst t. rewrite sum_app. simpl. rewrite Z.add_0_r.
         specialize (Hmax2 t' Ht').
         lia.
