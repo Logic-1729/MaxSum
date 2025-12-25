@@ -786,12 +786,150 @@ Proof.
 Qed. 
 
 (** Level 3: Prove that the algorithm returns a correct feasible subsequence achieving the maximum value *)
+Lemma sum_single: forall x, sum [x] = x.
+Proof. intros. simpl. apply Z.add_0_r. Qed.
+
+Lemma sincr_tail: forall a l, sincr (a :: l) -> sincr l.
+Proof.
+  intros a l Hsincr. unfold sincr in *.
+  destruct l as [|b l'].
+  - simpl. auto.
+  - simpl in Hsincr. simpl. inversion Hsincr; subst. assumption.
+Qed.   
+
+Lemma feasible_set_preserved: 
+  forall l s t,
+    feasible_set l t -> feasible_set (l ++ [s]) t.
+Proof.
+  intros l s t [il [Hidx [Hsincr Hgap]]].
+  exists il. split; [| split; auto].
+  - revert s l t Hsincr Hgap Hidx.  
+    induction il as [|i il' IH]; intros s l t Hsincr Hgap Hidx.
+    + inversion Hidx; subst. apply Forall2_nil.
+    + destruct t as [|y t'].
+      * inversion Hidx.
+      * constructor.
+        -- inversion Hidx; subst.
+           assert (H_range: 0 <= i < Zlength l).
+           { apply Znth_error_range in H2. tauto. }
+           rewrite (Znth_error_app_l _ _ _ H_range). apply H2.
+        -- inversion Hidx; subst. apply IH. 
+           ++ apply (sincr_tail i il' Hsincr).
+           ++ intros i0 j0 Hi0 Hj0. apply Hgap.
+              ** right. apply Hi0.
+              ** apply in_cons. apply Hj0.
+           ++ apply H4.                
+Qed.
+
+Lemma last_In: 
+  forall (l: list Z) (tail: Z),
+    l <> [] -> In (last l tail) l.
+Proof. 
+  intros l tail H. induction l as [|a l' IH].
+  - contradiction.
+  - destruct l' as [|a' l''].
+    + simpl. left. reflexivity.
+    + simpl. right. apply IH. discriminate.
+Qed.         
+
+Lemma feasible_set_extend:
+  forall (l: list Z) (s: Z) (t: list Z),
+    feasible_set (removelast l) t -> 
+    feasible_set (l ++ [s]) (t ++ [s]).
+Proof.
+  intros l s t Hfeas. unfold feasible_set, non_adjacent_subseq in Hfeas.
+  destruct Hfeas as [il [Hidx [Hsincr Hgap]]].
+  exists (il ++ [Zlength l]). repeat split. 
+  - apply is_indexed_elements_app.
+    + apply is_indexed_elements_extend. apply Hidx.
+    + apply is_indexed_elements_cons.
+      * apply Znth_error_snoc_last.
+      * apply is_indexed_elements_nil.
+  - apply sincr_extend_last.
+    + apply Hsincr.
+    + destruct il as [|i' il'].
+      * left. reflexivity. 
+      * right. apply is_indexed_elements_range in Hidx. 
+        rewrite Forall_forall in Hidx.
+        assert (Hlast_In: In(last (i' :: il') 0) (i' :: il')).
+        { apply last_In. discriminate. }
+        specialize (Hidx _ Hlast_In).
+        destruct (list_snoc_destruct l) as [Heq_l | [a [l' Heq_l]]].
+        -- subst l; simpl in *; unfold Zlength in *; simpl in *. lia.
+        -- subst l. rewrite removelast_app in Hidx by discriminate.
+           simpl in Hidx. rewrite app_nil_r in Hidx.
+           rewrite Zlength_app. unfold Zlength in *.  simpl. lia.
+  - intros x y Hx Hy. apply in_app_or in Hx. apply in_app_or in Hy.
+    destruct Hx as [Hx_il | Hx_lt]; destruct Hy as [Hy_il | Hy_lt].
+    + apply Hgap; tauto.
+    + simpl in *. destruct Hy_lt as [Heq_y | Hf]; [|contradiction].
+      subst y. apply is_indexed_elements_range in Hidx.
+      rewrite Forall_forall in Hidx. specialize (Hidx _ Hx_il).
+      destruct (list_snoc_destruct l) as [Heq_l | [a [l' Heq_l]]].
+      * subst l. simpl in Hidx. unfold Zlength in *. simpl. lia.
+      * subst l. rewrite removelast_app in Hidx by discriminate.
+        simpl in Hidx. rewrite app_nil_r in Hidx.
+        rewrite Zlength_app. unfold Zlength in *. simpl. lia.
+    + simpl in *. destruct Hx_lt as [Heq_x | Hf]; [|contradiction]. 
+      subst x. apply is_indexed_elements_range in Hidx. 
+      rewrite Forall_forall in Hidx. specialize (Hidx _ Hy_il). 
+      destruct (list_snoc_destruct l) as [Heq_l | [a [l' Heq_l]]]. 
+      * subst l. simpl. unfold Zlength in *. simpl in *. lia.
+      * subst l. rewrite removelast_app in Hidx by discriminate.
+        simpl in Hidx. rewrite app_nil_r in Hidx. 
+        rewrite Zlength_app. unfold Zlength in *. simpl. lia.
+    + simpl in *. destruct Hx_lt as [Heq_x | Hf]; [|contradiction].
+      destruct Hy_lt as [Heq_y | Hf]; [|contradiction]. subst x y. lia.    
+Qed.
+
 Theorem max_sum_full_correct :
   forall l,
     Hoare (max_sum l)
       (fun '(m, s) => max_sum_full_spec l m s).
 Proof.
-Admitted.
+  intros l. unfold max_sum. eapply Hoare_bind.
+  - eapply Hoare_list_iter with 
+      (I := fun done st => 
+              match st with 
+                (m1, ans1, m2, ans2) => 
+                  max_value_spec done m1 /\
+                  max_value_spec (removelast done) m2 /\
+                  feasible_set done ans1 /\ sum ans1 = m1 /\
+                  feasible_set (removelast done) ans2 /\  sum ans2 = m2
+              end).
+    + simpl. repeat split.
+      * apply max_value_spec_nil.
+      * apply max_value_spec_nil.
+      * apply feasible_set_nil_intro.
+      * apply feasible_set_nil_intro.
+    + intros x done st. destruct st as [[[m1 ans1] m2] ans2].
+      intros [Hm1 [Hm2 [Hfeas1 [Hsum1 [Hfeas2 Hsum2]]]]]. apply Hoare_choice.
+      * eapply Hoare_assume_bind. intros H_le. apply Hoare_ret. repeat split. 
+        -- assert (Hmax: max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
+           { apply max_value_spec_app; auto. }
+           replace (Z.max m1 (m2 + x)) with (m2 + x) in Hmax.
+           ++ apply Hmax.
+           ++ symmetry. apply Z.max_r. lia.
+        -- rewrite removelast_app_x. apply Hm1.
+        -- apply feasible_set_extend. tauto.
+        -- simpl. rewrite sum_app, sum_single, Hsum2. reflexivity.
+        -- rewrite removelast_app_x. apply Hfeas1.
+        -- apply Hsum1.
+      * eapply Hoare_assume_bind. intros H_ge. apply Hoare_ret. repeat split.
+        -- assert (Hmax: max_value_spec (done ++ [x]) (Z.max m1 (m2 + x))).
+           { apply max_value_spec_app; auto. }
+           replace (Z.max m1 (m2 + x)) with m1 in Hmax.
+           ++ apply Hmax.
+           ++ symmetry. apply Z.max_l. lia.
+        -- rewrite removelast_app_x. apply Hm1.
+        -- apply feasible_set_preserved. assumption.
+        -- assumption.
+        -- rewrite removelast_app_x. apply Hfeas1.
+        -- apply Hsum1.
+  - intros st. destruct st as [[[m1 ans1] m2] ans2].
+    intros [Hm1 [Hm2 [Hfeas1 [Hsum1 [_ _]]]]]. apply Hoare_ret.
+    unfold max_sum_full_spec. repeat split; auto.
+Qed.
 
 (** Lexicographical comparison of index lists *)
 Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
@@ -847,4 +985,5 @@ Theorem max_sum_lex_correct :
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
+
 Admitted.
