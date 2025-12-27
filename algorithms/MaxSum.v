@@ -1700,11 +1700,11 @@ Proof.
       subst i j.
       lia.
   - intros s' il' Hfeas Hidx' Hnonadj Hsum. 
-    assert (Hfeas_backup : feasible_set ((d0 :: drest) ++ [x]) s') by exact Hfeas.
+    assert (Hfeas_backup :  feasible_set ((d0 ::  drest) ++ [x]) s') by exact Hfeas.
     apply feasible_set_app_x_inv in Hfeas as [Hleft | [t' [Heq Ht']]].
     + exfalso.
       assert (Hle: sum s' <= max1).
-      { destruct (proj1 Hfull1) as [Hcase1 | Hcase2].   
+      { destruct (proj1 Hfull1) as [Hcase1 | Hcase2].    
         - destruct Hcase1 as (s0 & Hfeas0 & Hsum0 & Hbound).
           apply Hbound; exact Hleft.
         - destruct Hcase2 as (Hle_all & Hmax0).
@@ -1712,8 +1712,8 @@ Proof.
           apply Hle_all; exact Hleft. 
       }
       lia. 
-    + apply (index_lex_lt_extend_app_both d0 x max1 max2 idx drest ans2 il2 s' il' 
-               Hlen Hfull2 Hidx2 Hgap2 Hlex2 Hgt Hfeas_backup Hidx' Hnonadj Hsum).
+    + apply (index_lex_lt_extend_app_both d0 x max1 max2 idx drest ans1 ans2 il2 s' il'); 
+        auto.
   - rewrite removelast_app_x. apply (proj1 Hfull1).
   - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
