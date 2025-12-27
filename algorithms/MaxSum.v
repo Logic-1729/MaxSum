@@ -1522,9 +1522,61 @@ Proof.
     right; reflexivity.
 Qed.
 
+Lemma feasible_left_sum_bound : 
+  forall (d0 :  Z) (drest : list Z) (max1 : Z) (ans1 s' : list Z),
+    max_sum_full_spec (d0 :: drest) max1 ans1 ->
+    feasible_set (d0 ::  drest) s' ->
+    sum s' <= max1.
+Proof.
+  intros d0 drest max1 ans1 s' Hfull1 Hfeas'. 
+  destruct Hfull1 as [Hspec [_ _]].
+  destruct Hspec as [Hexists | [Hle_all Hmax0]].
+  - 
+    destruct Hexists as (s0 & Hfeas0 & Hsum0 & Hbound).
+    apply Hbound.  exact Hfeas'. 
+  - 
+    rewrite Hmax0.
+    apply Hle_all.  exact Hfeas'. 
+Qed. 
+
+Lemma index_in_left_contradicts_x : 
+  forall (d0 : Z) (drest : list Z) (x : Z) (i : Z) (t' : list Z),
+    i < Zlength (d0 :: drest) ->
+    Znth_error ((d0 :: drest) ++ [x]) i = Some x ->
+    (forall j, 0 <= j < Zlength (d0 :: drest) -> Znth_error (d0 :: drest) j <> Some x) ->
+    feasible_set (removelast (d0 ::  drest)) t' ->
+    False. 
+Proof.
+  intros d0 drest x i t' Hi_lt Hnth_i Hx_not_in_l _. 
+  (* 保存 Hnth_i *)
+  pose proof Hnth_i as Hnth_i_backup.
+  (* 从 Znth_error 得到 i >= 0 *)
+  apply Znth_error_range in Hnth_i_backup as [Hi_ge _].
+  (* 构造范围条件 *)
+  assert (Hi_range: 0 <= i < Zlength (d0 :: drest)) by (split; assumption).
+  (* 在左半部分查找 *)
+  rewrite Znth_error_app_l in Hnth_i by exact Hi_range.
+  (* 应用矛盾 *)
+  eapply Hx_not_in_l; eauto.
+Qed. 
+
+(* 辅助引理3: 从 removelast 的 max_sum_full_spec 推导原列表性质 *)
+Lemma max_sum_full_spec_removelast_implies_bound :
+  forall (d0 : Z) (drest : list Z) (max1 max2 x : Z) (ans1 ans2 : list Z) (s' : list Z),
+    max_sum_full_spec (d0 :: drest) max1 ans1 ->
+    max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
+    max2 + x > max1 ->
+    feasible_set (d0 :: drest) s' ->
+    sum s' <= max1.
+Proof.
+  intros d0 drest max1 max2 x ans1 ans2 s' Hfull1 Hfull2 Hgt Hfeas'.
+  apply (feasible_left_sum_bound d0 drest max1 ans1 s'); auto. 
+Qed.
+
 Lemma index_lex_lt_extend_app_both :  
-  forall (d0 x max1 max2 idx : Z) (drest ans2 il2 : list Z) (s' il' : list Z),
+  forall (d0 x max1 max2 idx : Z) (drest ans1 ans2 il2 : list Z) (s' il' : list Z),
     Zlength (d0 :: drest) = idx ->
+    max_sum_full_spec (d0 :: drest) max1 ans1 ->  (* 添加这个参数 *)
     max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
     is_indexed_elements (removelast (d0 :: drest)) il2 ans2 ->
     non_adjacent_in il2 ->
