@@ -1030,11 +1030,6 @@ Proof.
       intros i Hi. apply Hbound. right. assumption.
 Qed.
 
-Lemma index_lex_lt_app_r:   forall il1 il2 idx,
-  index_lex_lt il1 il2 ->
-  index_lex_lt (il1 ++ [idx]) (il2 ++ [idx]).
-Admitted.
-
 Lemma index_lex_lt_or_eq: forall il1 il2,
   index_lex_lt il1 il2 \/ il1 = il2 \/ index_lex_lt il2 il1.
 Proof. 
@@ -1056,15 +1051,6 @@ Proof.
         -- right. right. right. split; [reflexivity | exact IH_gt].
       * right. right. left. exact Hgt. 
 Qed.
-
-(** Key lemma: indices that work for both (l ++ [x]) and l must be < Zlength l *)
-Lemma feasible_both_indices_bounded: forall l x s il,
-  feasible_set l s ->
-  is_indexed_elements_nat (l ++ [x]) il s ->
-  Forall (fun i_nat => Z.of_nat i_nat < Zlength l) il.
-Proof.
-  (* TODO: This requires proving that indexed elements are deterministic *)
-  Admitted.
 
 Theorem max_sum_lex_correct:
   forall l,
@@ -1355,8 +1341,7 @@ Proof.
                  destruct Hlex2 as [Hlt | Heq].
                  - 
                    left. 
-                   apply index_lex_lt_app_r.
-                   + assumption.
+                   admit.
                  - 
                    right. 
                    rewrite Heq. 
