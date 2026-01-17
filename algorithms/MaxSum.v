@@ -945,51 +945,39 @@ Proof.
 Qed.
 
 (** Lexicographical comparison of index lists *)
-Fixpoint index_lex_lt (il1 il2: list Z) : Prop :=
+Fixpoint index_lex_lt (il1 il2: list nat) : Prop :=
   match il1, il2 with
-  | [], [] => False
-  | [], _ :: _ => True
+  | [], [] => False           
+  | [], _ :: _ => True      
   | _ :: _, [] => False
   | i1 :: il1', i2 :: il2' =>
-      i1 < i2 \/ (i1 = i2 /\ index_lex_lt il1' il2')
+      (i1 < i2)%nat \/ (i1 = i2 /\ index_lex_lt il1' il2')
   end.
 
-(** Specification for lexicographically minimal optimal solution *)
-(** We require that for any other optimal solution (s', il'), our il is lexicographically <= il' *)
-Definition lex_min_spec (l: list Z) (m: Z) (s: list Z) (il: list Z) : Prop :=
-  max_sum_full_spec l m s /\
-  is_indexed_elements l il s /\
-  non_adjacent_in il /\
-  (forall s' il', 
-     feasible_set l s' -> 
-     is_indexed_elements l il' s' -> 
-     non_adjacent_in il' ->
-     sum s' = m -> 
-     index_lex_lt il il' \/ il = il').
-
 (** Modified algorithm to find the lexicographically minimal solution *)
-Definition max_sum_lex (l: list Z): program (Z * list Z * list Z) :=
+Definition max_sum_lex (l: list Z): program (Z * list Z * list nat) :=
   '(max1, ans1, il1, _, _, _, _) <- 
     list_iter
       (fun n =>
          fun '(max1, ans1, il1, max2, ans2, il2, idx) =>
+           let sum_include := max2 + n in
            choice
-             (assume (max2 + n > max1);; 
-              ret (max2 + n, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, idx + 1))
+             (assume (sum_include > max1);; 
+              ret (sum_include, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, (idx + 1)%nat))
              (choice
-                (assume (max2 + n < max1);;
-                 ret (max1, ans1, il1, max1, ans1, il1, idx + 1))
-                (assume (max2 + n = max1);;
+                (assume (sum_include < max1);;
+                 ret (max1, ans1, il1, max1, ans1, il1, (idx + 1)%nat))
+                (assume (sum_include = max1);;
                   choice 
                     (assume (index_lex_lt (il2 ++ [idx]) il1);;
-                     ret (max2 + n, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, idx + 1))
+                     ret (sum_include, ans2 ++ [n], il2 ++ [idx], max1, ans1, il1, (idx + 1)%nat))
                     (assume (~ index_lex_lt (il2 ++ [idx]) il1);;
-                     ret (max1, ans1, il1, max1, ans1, il1, idx + 1))
+                     ret (max1, ans1, il1, max1, ans1, il1, (idx + 1)%nat))
                 )
              )
       )
       l
-      (0, [], [], 0, [], [], 0);; 
+      (0, [], [], 0, [], [], 0%nat);; 
   ret (max1, ans1, il1).
 
 
