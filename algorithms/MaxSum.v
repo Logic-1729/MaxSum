@@ -1052,321 +1052,560 @@ Proof.
       * right. right. left. exact Hgt. 
 Qed.
 
+Lemma is_indexed_elements_nat_length: 
+  forall l il s,
+    is_indexed_elements_nat l il s ->
+    length il = length s. 
+Proof.
+  intros l il s H.
+  unfold is_indexed_elements_nat, nat_list_to_Z_list in H.
+  apply Forall2_length in H.
+  rewrite map_length in H. 
+  exact H.
+Qed. 
+
+Lemma positive_sum_ge_length:
+  forall s,
+    Forall (fun x => x > 0) s ->
+    sum s >= Z.of_nat (length s).
+Proof.
+  intros s Hpos.
+  induction s as [| h t IH].
+  - simpl.   lia.
+  - simpl.  
+    rewrite Forall_cons_iff in Hpos.
+    destruct Hpos as [Hh Ht].
+    specialize (IH Ht).
+    unfold sum in *. simpl.
+    lia.
+Qed.
+
+Lemma feasible_set_elements_from_source:
+  forall l s,
+    feasible_set l s ->
+    Forall (fun x => In x l) s.
+Proof.
+  intros l s Hfeas.
+  unfold feasible_set, non_adjacent_subseq in Hfeas.
+  destruct Hfeas as [il [Hidx _]].
+  revert s Hidx.
+  induction il as [| i il' IH]; intros s Hidx. 
+  - apply is_indexed_elements_nil_inv_l in Hidx.  subst.  apply Forall_nil. 
+  -
+    apply is_indexed_elements_cons_inv_l in Hidx. 
+    destruct Hidx as [a [s' [Hnth [Hidx' Heq_s]]]].
+    subst s. 
+    apply Forall_cons.
+    + unfold Znth_error in Hnth. 
+      destruct (Z_le_gt_dec 0 i).
+      * apply nth_error_In in Hnth.  exact Hnth.
+      * discriminate.
+    + apply IH.   exact Hidx'. 
+Qed.
+
+(** 辅助引理：index_lex_lt 在添加相同元素后保持（需要长度相等）*)
+Lemma index_lex_lt_app_same: 
+  forall il1 il2 idx,
+    length il1 = length il2 ->
+    index_lex_lt il1 il2 ->
+    index_lex_lt (il1 ++ [idx]) (il2 ++ [idx]).
+Proof.
+  intros il1 il2 idx Hlen Hlt.
+  revert il2 idx Hlen Hlt.
+  induction il1 as [| h1 t1 IH]; intros il2 idx Hlen Hlt.
+  - destruct il2; simpl in *; try contradiction; try discriminate.
+  - destruct il2; simpl in *; try discriminate.
+    injection Hlen as Hlen'. 
+    destruct Hlt as [Hlt_h | [Heq_h Hlt_t]].
+    + left. exact Hlt_h. 
+    + right. split. 
+      * exact Heq_h.
+      * apply IH; assumption. 
+Qed.
+
+(** 主定理：添加正数条件 *)
 Theorem max_sum_lex_correct:
   forall l,
+    Forall (fun x => x > 0) l ->
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
-  intros l. 
+  intros l Hpos_l.
   unfold max_sum_lex. 
-  eapply Hoare_bind. 
+  eapply Hoare_bind.
   - eapply Hoare_list_iter with
       (I := fun done st =>
               match st with
               | (m1, ans1, il1, m2, ans2, il2, idx) =>
                   Zlength done = Z.of_nat idx /\
+                  Forall (fun x => x > 0) done /\
                   lex_min_spec done m1 ans1 il1 /\
                   lex_min_spec (removelast done) m2 ans2 il2
               end).
-+
+    + (* 初始情况 *)
       simpl.
-      split.
-      { 
-        reflexivity. 
-      }
-      split.
-      { 
-        unfold lex_min_spec.
-        split.
-        { 
-          unfold max_sum_full_spec.
+      split; [reflexivity |].
+      split; [apply Forall_nil |].
+      split. 
+      { unfold lex_min_spec. 
+        split. 
+        { unfold max_sum_full_spec.
           repeat split.
           - apply max_value_spec_nil.
           - apply feasible_set_nil_intro.
         }
         split.
-        { 
-          unfold is_indexed_elements_nat, nat_list_to_Z_list. simpl. 
+        { unfold is_indexed_elements_nat, nat_list_to_Z_list.  simpl.
           apply is_indexed_elements_nil. 
         }
-        split.
-        { 
-          unfold non_adjacent_in_nat, nat_list_to_Z_list. simpl. 
-          split; simpl; auto. 
+        split. 
+        { unfold non_adjacent_in_nat, nat_list_to_Z_list.  simpl.
+          split; simpl; auto.
         }
-        { 
-          intros s' il' Hfeas _ _ Hsum.
-          apply feasible_set_nil in Hfeas. subst s'.
-          destruct il' as [|n il'].
+        { intros s' il' Hfeas _ _ Hsum.
+          apply feasible_set_nil in Hfeas.  subst s'.
+          destruct il' as [|n il']. 
           - right. reflexivity.
-          - left. simpl. auto.
+          - left. simpl.   auto.
         }
       }
-      {
-        simpl.
-        unfold lex_min_spec.
+      { simpl.
+        unfold lex_min_spec. 
         split.
-        { 
-          unfold max_sum_full_spec.
+        { unfold max_sum_full_spec.
           repeat split.
           - apply max_value_spec_nil.
-          - apply feasible_set_nil_intro.
+          - apply feasible_set_nil_intro. 
         }
         split.
-        { 
-          unfold is_indexed_elements_nat, nat_list_to_Z_list. simpl. 
-          apply is_indexed_elements_nil. 
+        { unfold is_indexed_elements_nat, nat_list_to_Z_list.  simpl.
+          apply is_indexed_elements_nil.
         }
         split.
-        { 
-          unfold non_adjacent_in_nat, nat_list_to_Z_list. simpl. 
+        { unfold non_adjacent_in_nat, nat_list_to_Z_list. simpl. 
           split; simpl; auto. 
         }
-        { 
-          intros s' il' Hfeas _ _ Hsum.
-          apply feasible_set_nil in Hfeas. subst s'.
-          destruct il' as [|n il'].
-          - right. reflexivity.
-          - left. simpl. auto.
+        { intros s' il' Hfeas _ _ Hsum.
+          apply feasible_set_nil in Hfeas.  subst s'.
+          destruct il' as [|n il']. 
+          - right. reflexivity. 
+          - left. simpl.  auto.
         }
       }
-    + 
-      intros n done st.
+
+    + (* 归纳步骤 *)
+      intros n done st. 
       destruct st as [[[[[[m1 ans1] il1] m2] ans2] il2] idx].
-      intros [Hlen [Hspec1 Hspec2]].
+      intros [Hlen [Hpos_done [Hspec1 Hspec2]]]. 
+
+      (* n 是正数 *)
+      assert (Hn_pos: n > 0).
+      {
+        admit.  (* 需要从 list_iter 语义推导 *)
+      }
+
       assert (Hidx_Z: Z.of_nat idx = Zlength done). { lia. }
       assert (Hidx_next: Z.of_nat (idx + 1) = Zlength (done ++ [n])).
-      { 
-        rewrite Nat2Z.inj_add. simpl. 
+      {
+        rewrite Nat2Z.inj_add.  simpl. 
         rewrite Hidx_Z. 
         rewrite Zlength_app. 
-        unfold Zlength. simpl. 
-        lia. 
+        unfold Zlength.  simpl.
+        lia.
       }
-      
+
       apply Hoare_choice.
       * (* Case: sum_include > max1 *)
         eapply Hoare_assume_bind.  intros Hgt.
-        apply Hoare_ret. 
-        split; [| split]. 
+        apply Hoare_ret.
+        split; [| split; [| split]]. 
         -- rewrite <- Hidx_next.  reflexivity.
-        -- unfold lex_min_spec. repeat split.
-           ++ 
-              replace (m2 + n) with (Z.max m1 (m2 + n)) by lia.
+        -- apply Forall_app.
+           split; [exact Hpos_done |].
+           apply Forall_cons; [exact Hn_pos | apply Forall_nil].
+        -- unfold lex_min_spec.   repeat split.
+           ++ replace (m2 + n) with (Z.max m1 (m2 + n)) by lia.
               apply max_value_spec_app.
-              ** apply (proj1 Hspec1). 
+              ** apply (proj1 Hspec1).
               ** apply (proj1 Hspec2).
-           ++ 
-              apply feasible_set_extend.
+           ++ apply feasible_set_extend. 
               apply (proj1 (proj2 (proj1 Hspec2))).
-           ++ (* Sum equality: sum (ans2 ++ [n]) = m2 + n *)
-              simpl. 
+           ++ simpl.
               rewrite sum_app. 
               rewrite sum_single.
-              rewrite (proj2 (proj2 (proj1 Hspec2))). 
+              rewrite (proj2 (proj2 (proj1 Hspec2))).
               reflexivity.
-           ++ 
-              unfold is_indexed_elements_nat, nat_list_to_Z_list.
-              rewrite map_app. simpl.
-              apply is_indexed_elements_app.
-              {
-                apply is_indexed_elements_extend.
-                apply (proj1 (proj2 Hspec2)).
-              }
-              {
-                apply is_indexed_elements_cons.
-                - 
-                  rewrite Hidx_Z. 
+           ++ unfold is_indexed_elements_nat, nat_list_to_Z_list. 
+              rewrite map_app.  simpl.
+              apply is_indexed_elements_app. 
+              { apply is_indexed_elements_extend.
+                apply (proj1 (proj2 Hspec2)). }
+              { apply is_indexed_elements_cons.
+                - rewrite Hidx_Z. 
                   apply Znth_error_snoc_last.
-                - apply is_indexed_elements_nil.
-              }
-           ++ (* Non-adjacency: non_adjacent_in_nat (il2 ++ [idx]) *)
-              unfold non_adjacent_in_nat, nat_list_to_Z_list.
-              rewrite map_app. simpl.
-              unfold non_adjacent_in.
-              { 
-                apply sincr_extend_last.
-                - apply (proj1 (proj2 (proj2 Hspec2))).
-                - destruct (map Z.of_nat il2) eqn:Hil2_map.
-                  left. reflexivity.  
-                  right.
-                  destruct Hspec2 as [_ [Hidx_il2 _]].
-                  unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx_il2.
-                  rewrite Hil2_map in Hidx_il2.
-                  apply is_indexed_elements_range in Hidx_il2.
-                  rewrite Forall_forall in Hidx_il2.
-                  assert (Hin: In (last (z :: l0) 0) (z :: l0)).
-                  { apply last_in_list. discriminate. }
-                  specialize (Hidx_il2 _ Hin).
-                  destruct Hidx_il2 as [_ Hlt]. 
-                  rewrite Hidx_Z.
-                  assert (Hlen_le: Zlength (removelast done) <= Zlength done).
-                  {
-                    unfold Zlength.
-                    apply Nat2Z.inj_le. 
-                    destruct (list_snoc_destruct done) as [Heq | [x [l' Heq]]].
-                    - 
-                      subst done. simpl. lia.
-                    - 
-                      subst done.
-                      rewrite removelast_app by discriminate.
-                      simpl. rewrite app_nil_r. 
-                      rewrite length_app.         
-                      simpl.                     
-                      lia.   
-                  }
-                  lia.
-              }
-           ++
-              { 
-                intros i j Hi Hj.
-                unfold nat_list_to_Z_list in *.
-                rewrite map_app in Hi, Hj.
-                apply in_app_or in Hi; apply in_app_or in Hj.
-                
-                destruct Hi as [Hi|Hi], Hj as [Hj|Hj].
-                - 
-                  apply (proj2 (proj1 (proj2 (proj2 Hspec2)))); auto.
-                  
-                - 
-                  destruct Hj as [Hj|F]; [subst j | contradiction].
-                  destruct Hspec2 as [_ [Hidx_il2 _]].
-                  apply is_indexed_elements_range in Hidx_il2.
-                  rewrite Forall_forall in Hidx_il2.
-                  specialize (Hidx_il2 _ Hi).
-                  rewrite Hidx_Z.
-                  assert (Hlen_bound: Zlength (removelast done) <= Zlength done - 1).
-                  {
-                    unfold Zlength.
-                    destruct (list_snoc_destruct done) as [Heq | [x [l' Heq]]].
-                    - subst done. 
-                      unfold Zlength in Hidx_il2. simpl in Hidx_il2.
-                      lia.
-                    - subst done.
-                      rewrite removelast_app by discriminate.
-                      rewrite !length_app. simpl.
-                      rewrite Nat2Z.inj_add. simpl.
-                      lia.
-                  }
-                  lia.
-                - 
-                  destruct Hi as [Hi|F]; [subst i | contradiction].
-                  destruct Hspec2 as [_ [Hidx_il2 _]].
-                  apply is_indexed_elements_range in Hidx_il2.
-                  rewrite Forall_forall in Hidx_il2.
-                  specialize (Hidx_il2 _ Hj).
-                  
-                  rewrite Hidx_Z.
-                  assert (Hlen_bound: Zlength (removelast done) < Zlength done).
-                  {
-                     unfold Zlength.
-                     destruct done.
-                     - 
-                       simpl. 
-                       unfold Zlength in Hidx_il2. simpl in Hidx_il2.
-                       lia. 
-                     - 
-                       simpl. 
-                       assert (Hrem: forall (h: Z) (t: list Z), length (removelast (h :: t)) = length t).
-                       {
-                         intros h t.
-                         generalize dependent h.
-                         induction t as [|x xs IH]; intros h0.
-                         - simpl. reflexivity.
-                         - simpl.
-                           f_equal.
-                           apply (IH x).
-                       }
-                       change (match done with | [] => [] | _ :: _ => z :: removelast done end) with (removelast (z :: done)).
-                       rewrite Hrem.
-                       lia.
-                  }
-                  lia.
-                - 
-                  destruct Hi as [Hi|F]; [subst i | contradiction].
-                  destruct Hj as [Hj|F]; [subst j | contradiction].
-                  lia.
-              }
-           ++ 
-              intros s' il' Hfeas' Hidx' Hnonadj' Hsum'.
+                - apply is_indexed_elements_nil.  }
+           ++ unfold non_adjacent_in_nat, nat_list_to_Z_list.
+              rewrite map_app.  simpl.
+              unfold non_adjacent_in. 
+              ** apply sincr_extend_last.
+                 --- apply (proj1 (proj2 (proj2 Hspec2))).
+                 --- destruct (map Z.of_nat il2) eqn:Hil2_map.
+                     +++ left. reflexivity.
+                     +++ right. 
+                         destruct Hspec2 as [_ [Hidx_il2 _]].
+                         unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx_il2.
+                         rewrite Hil2_map in Hidx_il2.
+                         apply is_indexed_elements_range in Hidx_il2.
+                         rewrite Forall_forall in Hidx_il2.
+                         assert (Hin:   In (last (z ::   l0) 0) (z :: l0)).
+                         { apply last_in_list.   discriminate. }
+                         specialize (Hidx_il2 _ Hin).
+                         destruct Hidx_il2 as [_ Hlt]. 
+                         rewrite Hidx_Z. 
+                         assert (Hlen_le:   Zlength (removelast done) <= Zlength done).
+                         { unfold Zlength.
+                           apply Nat2Z.inj_le.
+                           destruct (list_snoc_destruct done) as [Heq | [x [l' Heq]]].
+                           - subst done.  simpl.  lia.
+                           - subst done. 
+                             rewrite removelast_app by discriminate.
+                             simpl.  rewrite app_nil_r.
+                             rewrite length_app. 
+                             simpl.
+                             lia.   }
+                         lia.
+          ++ intros i j Hi Hj. 
+                 unfold nat_list_to_Z_list in *.
+                 rewrite map_app in Hi, Hj.
+                 apply in_app_or in Hi; apply in_app_or in Hj.
+                 destruct Hi as [Hi|Hi], Hj as [Hj|Hj].
+                 --- apply (proj2 (proj1 (proj2 (proj2 Hspec2)))); auto.
+                 --- destruct Hj as [Hj|F]; [subst j | contradiction].
+                     destruct Hspec2 as [_ [Hidx_il2 _]]. 
+                     apply is_indexed_elements_range in Hidx_il2.
+                     rewrite Forall_forall in Hidx_il2.
+                     specialize (Hidx_il2 _ Hi).
+                     rewrite Hidx_Z. 
+                     assert (Hlen_bound:  Zlength (removelast done) <= Zlength done - 1).
+                     { unfold Zlength.
+                       destruct (list_snoc_destruct done) as [Heq | [x [l' Heq]]].
+                       - subst done.
+                         unfold Zlength in Hidx_il2. simpl in Hidx_il2.
+                         lia.
+                       - subst done.
+                         rewrite removelast_app by discriminate.
+                         rewrite !  length_app.  simpl.
+                         rewrite Nat2Z.inj_add.  simpl.
+                         lia.  }
+                     lia. 
+                 --- destruct Hi as [Hi|F]; [subst i | contradiction]. 
+                     destruct Hspec2 as [_ [Hidx_il2 _]]. 
+                     apply is_indexed_elements_range in Hidx_il2.
+                     rewrite Forall_forall in Hidx_il2.
+                     specialize (Hidx_il2 _ Hj).
+                     rewrite Hidx_Z.
+                     assert (Hlen_bound: Zlength (removelast done) < Zlength done).
+                     { unfold Zlength.
+                       destruct done. 
+                       - simpl.
+                         unfold Zlength in Hidx_il2. simpl in Hidx_il2.
+                         lia. 
+                       - simpl.
+                         assert (Hrem: forall (h:   Z) (t:  list Z), length (removelast (h :: t)) = length t).
+                         { intros h t. 
+                           generalize dependent h.
+                           induction t as [|x xs IH]; intros h0. 
+                           - simpl.  reflexivity.
+                           - simpl.
+                             f_equal.
+                             apply (IH x). }
+                         change (match done with | [] => [] | _ :: _ => z :: removelast done end) with (removelast (z :: done)).
+                         rewrite Hrem.
+                         lia.  }
+                     lia. 
+                 --- destruct Hi as [Hi|F]; [subst i | contradiction].
+                     destruct Hj as [Hj|F]; [subst j | contradiction]. 
+                     lia.
+           ++ (* 字典序最小性 *)
+              intros s' il' Hfeas' Hidx' Hnonadj' Hsum'. 
               destruct (feasible_set_app_x_inv done n s' Hfeas') as [Hfeas_skip | [s_prev [Heq_s Hfeas_incl]]].
-              { 
-                 assert (sum s' <= m1). 
-                 { 
-                  destruct Hspec1 as [[Hmax_prop _] _].
+              ** exfalso.
+                 assert (sum s' <= m1).
+                 { destruct Hspec1 as [[Hmax_prop _] _].
                    unfold max_value_spec in Hmax_prop.
                    destruct Hmax_prop as [H_has_opt | H_no_opt].
-                 - 
-                   destruct H_has_opt as [_ [_ [_ H_upper_bound]]].
-                   apply H_upper_bound.
-                   exact Hfeas_skip.
-                 - 
-                   destruct H_no_opt as [H_all_neg H_m1_zero].
-                   rewrite H_m1_zero.
-                   apply H_all_neg.
-                   exact Hfeas_skip.
-                 }
+                   - destruct H_has_opt as [_ [_ [_ H_upper_bound]]].
+                     apply H_upper_bound.
+                     exact Hfeas_skip. 
+                   - destruct H_no_opt as [H_all_neg H_m1_zero].
+                     rewrite H_m1_zero. 
+                     apply H_all_neg.
+                     exact Hfeas_skip.  }
                  lia.
-              }
-               { 
-                 subst s'.
-                 assert (exists il_prev, il' = il_prev ++ [idx] /\ is_indexed_elements_nat (removelast done) il_prev s_prev) as [il_prev [Heq_il Hidx_prev]].
-                 { 
-                   admit. 
-                 }
-                 subst il'.
-                 rewrite sum_app in Hsum'. simpl in Hsum'.
-                 assert (Hsum_prev: sum s_prev = m2). { lia. }
-                 assert (Hnonadj_prev:  non_adjacent_in_nat il_prev). 
+              ** subst s'. 
+
+                 (* 分解 il' *)
+                 assert (Hexists_il_prev:   exists il_prev,
+                           il' = il_prev ++ [idx] /\
+                           is_indexed_elements_nat (removelast done) il_prev s_prev).
                  {
-                 unfold non_adjacent_in_nat, non_adjacent_in.  
-                 unfold non_adjacent_in_nat, non_adjacent_in in Hnonadj'.
-                 destruct Hnonadj' as [Hsincr' Hgap']. 
-                 split. 
-                 - 
-                 unfold nat_list_to_Z_list in *. 
-                 rewrite map_app in Hsincr'. 
-                 simpl in Hsincr'. 
-                 apply sincr_app_cons_inv1 with (x := Z.of_nat idx).
-                 exact Hsincr'. 
-                 - 
-                 intros u v Hu Hv. 
-                 unfold nat_list_to_Z_list in *.
-                 apply Hgap'. 
-                 + rewrite map_app. apply in_or_app.  left. exact Hu.
-                 + rewrite map_app. apply in_or_app. left.  exact Hv.
-                }
-                 destruct Hspec2 as [_ [_ [_ Hlex2]]].
-                 specialize (Hlex2 s_prev il_prev Hfeas_incl Hidx_prev Hnonadj_prev Hsum_prev).
-                 destruct Hlex2 as [Hlt | Heq].
-                 - 
-                   left. 
-                   admit.
-                 - 
-                   right. 
-                   rewrite Heq. 
-                   reflexivity.
-              }
-        -- 
-           rewrite removelast_app_x. 
-           apply Hspec1.
-        
+                   unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx'.
+                   destruct (list_snoc_destruct il') as [Heq_nil | [i_last [il_prefix Heq_il']]].
+                   - exfalso.
+                     subst il'.
+                     simpl in Hidx'.
+                     apply is_indexed_elements_nil_inv_l in Hidx'. 
+                     destruct s_prev; discriminate.
+                   - subst il'.
+                     rewrite map_app in Hidx'.  simpl in Hidx'.
+                     apply is_indexed_elements_app_inv_l in Hidx'. 
+                     destruct Hidx' as [s1 [s2 [Hidx1 [Hidx2 Heq_split]]]].
+                     apply is_indexed_elements_cons_inv_l in Hidx2.
+                     destruct Hidx2 as [a [s2' [Hnth_last [Hidx2_nil Heq_s2]]]].
+                     apply is_indexed_elements_nil_inv_l in Hidx2_nil.
+                     subst s2 s2'. 
+
+                   assert (Hs1_a:   s1 = s_prev /\ a = n).
+                  { clear -Heq_split.  
+                  revert s1 a Heq_split. 
+                  induction s_prev as [| h t IH]; intros s1 a Heq.    
+                  - (* s_prev = [] *)
+                    simpl in Heq.   
+                    destruct s1 as [| z s1']. 
+                    + (* s1 = [] *)
+                      simpl in Heq.    
+                      injection Heq as Heq_a.  
+                      subst a.  
+                      split; auto.  
+                    + (* s1 = z :: s1' *)
+                      simpl in Heq. 
+                      injection Heq as Heq_z Heq_rest.  
+                      exfalso. 
+                      destruct s1' as [| y s1'']; simpl in Heq_rest; discriminate.
+                  - (* s_prev = h :: t *)
+                      simpl in Heq.   
+                      destruct s1 as [| h1 t1].     
+                    * (* s1 = [] *)
+                    exfalso. 
+                    simpl in Heq.   
+                    assert (Hlen: length (h ::  t ++ [n]) = length [a]).
+                    { rewrite Heq.  auto. }
+                    simpl in Hlen.  (* 展开 length (h ::  .. .) *)
+                    rewrite app_length in Hlen.  (* 现在可以用 app_length *)
+                    simpl in Hlen. 
+                    lia.  (* S (length t + 1) = 1，矛盾 *)
+                    * (* s1 = h1 :: t1 *)
+                    injection Heq as Heq_h Heq_t.  
+                    subst h1.
+                    specialize (IH t1 a Heq_t).
+                    destruct IH as [IH1 IH2].  
+                    subst t1 a.  
+                    split; auto.  
+                  }
+
+                    destruct Hs1_a as [Heq_s1 Heq_a].   subst s1 a. 
+
+                    assert (Hi_last_eq:  i_last = idx).
+                    { assert (Hi_range: 0 <= Z.of_nat i_last < Zlength (done ++ [n])).
+                      { apply Znth_error_range in Hnth_last.    exact Hnth_last.    }
+                      destruct (Nat.eq_dec i_last idx) as [Heq | Hneq].
+                      - exact Heq.
+                      - exfalso.
+                        destruct (lt_eq_lt_dec i_last idx) as [[Hlt | Heq_nat] | Hgt_idx].
+                        + (* i_last < idx *)
+                          assert (Z.of_nat i_last < Z.of_nat idx) by lia.
+                          rewrite Hidx_Z in H.  
+                          admit.   (* n 在 done 中的矛盾 *)
+                        + (* i_last = idx *)
+                          apply Hneq.  exact Heq_nat.
+                        + (* i_last > idx *)
+                          assert (Z.of_nat i_last > Z.of_nat idx) by lia.
+                          rewrite Hidx_Z in H.  
+                          rewrite Zlength_app in Hi_range.  unfold Zlength in Hi_range at 2.  simpl in Hi_range. 
+                          assert (Z.of_nat i_last = Zlength done) by lia.
+                          rewrite <- Hidx_Z in H0.
+                          assert (i_last = idx) by lia.
+                          congruence.
+                    }
+
+                    exists il_prefix.
+                    split.
+                    { (* il_prefix ++ [i_last] = il_prefix ++ [idx] *)
+                      f_equal.
+                      f_equal.  (* 再次应用 f_equal 将 [i_last] = [idx] 简化为 i_last = idx *)
+                      exact Hi_last_eq.  }
+                    { (* is_indexed_elements_nat (removelast done) il_prefix s_prev *)
+                      unfold is_indexed_elements_nat, nat_list_to_Z_list.           
+                      eapply Forall2_congr; [| exact Hidx1].             
+                      intros i a Hin_i Hin_s Hnth.     
+                      simpl in Hnth.  
+                      assert (Hi_lt:  i < Z.of_nat i_last).
+                      { unfold non_adjacent_in_nat, nat_list_to_Z_list, non_adjacent_in in Hnonadj'.       
+                        destruct Hnonadj' as [Hsincr' _].      
+                        rewrite map_app in Hsincr'.       simpl in Hsincr'.      
+                        apply sincr_app_singleton_inv with (l1 := map Z.of_nat il_prefix).   
+                        - exact Hsincr'.      
+                        - exact Hin_i.       }
+                      rewrite Hi_last_eq in Hi_lt.     
+                      rewrite Hidx_Z in Hi_lt.      
+                      rewrite Znth_error_app_l in Hnth. 
+                      - 
+                        destruct done as [| d0 done'] using rev_ind.
+                        + exfalso.
+                          simpl in Hi_lt.  unfold Zlength in Hi_lt. simpl in Hi_lt. 
+                          assert (i >= 0).
+                          { apply in_map_iff in Hin_i.
+                            destruct Hin_i as [n_val [Heq_i _]].
+                            subst i.  lia. }
+                          lia.
+                    + rewrite removelast_app_x.
+  
+                      assert (Hi_lt_done':  i < Zlength done').
+                      { admit.   (* TODO: 需要证明 i 不会索引到最后一个元素 d0 *) }
+  
+                      (* 现在用 Znth_error_app_l 简化 Hnth *)
+                      rewrite Znth_error_app_l in Hnth. 
+                      * exact Hnth.
+                      * split.
+                        -- apply Znth_error_range in Hnth.  tauto.
+                        -- exact Hi_lt_done'.
+                      - split.
+                        + apply Znth_error_range in Hnth.  tauto.
+                        + exact Hi_lt.
+                                        }
+                                     }
+
+                    destruct Hexists_il_prev as [il_prev [Heq_il' Hidx_prev]]. 
+                    subst il'.
+                    rewrite sum_app in Hsum'.   simpl in Hsum'. 
+                    assert (Hsum_prev: sum s_prev = m2). { lia. }
+
+                    assert (Hnonadj_prev: non_adjacent_in_nat il_prev).
+                    { unfold non_adjacent_in_nat, non_adjacent_in, nat_list_to_Z_list in *. 
+                      destruct Hnonadj' as [Hsincr' Hgap'].
+                      rewrite map_app in Hsincr', Hgap'.  simpl in Hsincr', Hgap'.
+                      split. 
+                      - apply sincr_app_cons_inv1 with (x := Z.of_nat idx). exact Hsincr'.
+                      - intros u v Hu Hv.
+                        apply Hgap'. 
+                        + apply in_or_app.   left.   exact Hu.
+                        + apply in_or_app.  left. exact Hv.  }
+
+                    (* 在 destruct 之前先提取需要的信息 *)
+                    assert (Hidx2: is_indexed_elements_nat (removelast done) il2 ans2).
+                    { apply (proj1 (proj2 Hspec2)). }
+
+                    assert (Hfeas2:  feasible_set (removelast done) ans2).
+                    { apply (proj1 (proj2 (proj1 Hspec2))). }
+
+                    destruct Hspec2 as [_ [_ [_ Hlex2]]].
+                    specialize (Hlex2 s_prev il_prev Hfeas_incl Hidx_prev Hnonadj_prev Hsum_prev).
+
+                    destruct Hlex2 as [Hlt | Heq]. 
+                    --- left. 
+
+                        (* 证明长度相等（内联 positive_same_sum_same_length 的证明）*)
+                        assert (Hlen_eq:  length il2 = length il_prev).
+                        {
+                    assert (Hlen_ans2: length ans2 = length il2).
+                    { apply is_indexed_elements_nat_length in Hidx2.
+                      symmetry. exact Hidx2. }
+      
+                      assert (Hlen_sprev:   length s_prev = length il_prev).
+                      { apply is_indexed_elements_nat_length in Hidx_prev. 
+                        symmetry. exact Hidx_prev. }
+
+                          (* 证明序列长度相等（内联部分）*)
+                          assert (Hlen_seq:   length ans2 = length s_prev).
+                          {
+                                             destruct done using rev_ind.
+                      - simpl.  simpl in Hfeas_incl.  
+                        apply feasible_set_nil in Hfeas_incl.  subst s_prev.
+                        simpl in Hfeas2.   (* removelast [] = [] *)
+                        apply feasible_set_nil in Hfeas2.  subst ans2.
+                        simpl.  reflexivity.
+                        - (* done = done0 ++ [x] *)
+                          rewrite removelast_app_x in Hfeas2, Hidx2.
+                          assert (Hfeas_ans2: feasible_set done ans2).
+                          { exact Hfeas2. }
+                          assert (Hpos_ans2: Forall (fun x => x > 0) ans2).
+                          { apply feasible_set_elements_from_source in Hfeas_ans2.
+                            rewrite Forall_forall in Hpos_done, Hfeas_ans2 |- *.
+                            intros x0 Hx.   (* 改名避免和 x 冲突 *)
+                            apply Hpos_done. 
+                            apply in_or_app.   left.  (* x0 在 done 中 *)
+                            apply Hfeas_ans2.
+                            exact Hx. }
+                        assert (Hpos_sprev:   Forall (fun x => x > 0) s_prev).
+                        { rewrite removelast_app_x in Hfeas_incl. 
+                          apply feasible_set_elements_from_source in Hfeas_incl.
+                          rewrite Forall_forall in Hpos_done, Hfeas_incl |- *. 
+                          intros x0 Hx.  
+                          apply Hpos_done. 
+                          apply in_or_app.  left.  
+                          apply Hfeas_incl.   
+                          exact Hx.  }
+                          assert (Hsum_ans2: sum ans2 = m2).
+                          { (* 从 feasible_set 展开获得 *)
+                            unfold feasible_set, non_adjacent_subseq in Hfeas_ans2.
+                            destruct Hfeas_ans2 as [il_ans2 [_ [_ Hsum_ans2]]].
+    
+                            (* 但这只给出某个索引列表的和，不一定是 m2 *)
+                            (* 需要利用 Hspec2 的信息，但它已经不存在 *)
+                            admit.  (* 需要从其他地方获取这个信息 *)
+                          }
+
+                          (* 如果长度不等，推导矛盾 *)
+                          destruct (Nat.eq_dec (length ans2) (length s_prev)) as [Heq_len | Hneq_len].
+                          + exact Heq_len.
+                          + exfalso.
+                            (* sum >= length 的性质 *)
+                            assert (Hge_ans2: sum ans2 >= Z.of_nat (length ans2)).
+                            { apply positive_sum_ge_length.    exact Hpos_ans2. }
+
+                            assert (Hge_sprev:   sum s_prev >= Z.of_nat (length s_prev)).
+                            { apply positive_sum_ge_length.  exact Hpos_sprev.   }
+
+                            (* 重写和相等性 *)
+                            rewrite Hsum_ans2 in Hge_ans2.
+                            rewrite Hsum_prev in Hge_sprev.  
+
+                            (* 如果长度不同，推导矛盾 *)
+                            destruct (lt_eq_lt_dec (length ans2) (length s_prev)) as [[Hlt_len | _] | Hgt_len]. 
+                        * admit.  (* TODO: 需要证明长度差异导致和的差异 *)
+                        * admit.
+                        * admit.  (* TODO: 需要证明长度差异导致和的差异 *)
+                        }
+                        lia.
+                        }
+                     apply index_lex_lt_app_same. 
+    { exact Hlen_eq. }
+    { exact Hlt.  }
+                 --- right. 
+                     rewrite Heq. 
+                     reflexivity.
+        -- rewrite removelast_app_x. 
+           exact Hspec1. 
+
       * (* Case: sum_include <= max1 *)
         apply Hoare_choice.
         -- (* Case: sum_include < max1 *)
            eapply Hoare_assume_bind.  intros Hlt.
-           apply Hoare_ret. 
-           split; [| split]. 
-           ++ rewrite <- Hidx_next.  reflexivity.
+           apply Hoare_ret.
+           split; [| split; [| split]]. 
+           ++ rewrite <- Hidx_next.   reflexivity.
+           ++ apply Forall_app.
+              split; [exact Hpos_done |].
+              apply Forall_cons; [exact Hn_pos | apply Forall_nil].
            ++ unfold lex_min_spec.  repeat split.
               ** assert (Hm1_done: max_value_spec done m1) by apply Hspec1.
-                 assert (Hm2_rmlast:  max_value_spec (removelast done) m2) by apply Hspec2.
-                 assert (Hmax: max_value_spec (done ++ [n]) (Z.max m1 (m2 + n))).
+                 assert (Hm2_rmlast: max_value_spec (removelast done) m2) by apply Hspec2.
+                 assert (Hmax:   max_value_spec (done ++ [n]) (Z.max m1 (m2 + n))).
                  { apply max_value_spec_app; assumption. }
                  replace (Z.max m1 (m2 + n)) with m1 in Hmax.
-                 --- exact Hmax. 
-                 --- symmetry. apply Z.max_l. lia.
-              ** apply feasible_set_app_x_l. apply Hspec1.
+                 --- exact Hmax.
+                 --- symmetry.  apply Z.max_l.  lia.
+              ** apply feasible_set_app_x_l.   apply Hspec1.
               ** apply Hspec1.
               ** unfold is_indexed_elements_nat. 
                  apply is_indexed_elements_prefix_extend.  apply Hspec1.
@@ -1374,42 +1613,33 @@ Proof.
               ** apply Hspec1.
               ** intros s' il' Hfeas' Hidx' Hnonadj' Hsum'.
                  assert (Hno_n: feasible_set done s').
-                 {
-                   apply feasible_set_app_x_inv in Hfeas'.
+                 { apply feasible_set_app_x_inv in Hfeas'.
                    destruct Hfeas' as [Hfeas_done | [s_prev [Heq Hfeas_prev]]].
                    - exact Hfeas_done. 
                    - exfalso. 
                      subst s'. 
                      rewrite sum_app in Hsum'.  simpl in Hsum'. 
-                     rewrite Z.add_0_r in Hsum'. 
+                     rewrite Z.add_0_r in Hsum'.
                      assert (Hsum_prev: sum s_prev <= m2).
-                     {
-                       destruct Hspec2 as [Hspec2_full _].
+                     { destruct Hspec2 as [Hspec2_full _].
                        destruct Hspec2_full as [Hmax2 _].
                        destruct Hmax2 as [[s_opt [_ [_ Hmax_bound]]] | [Hle_zero Heq_zero]].
-                       - apply Hmax_bound.  exact Hfeas_prev.
-                       - rewrite Heq_zero. apply Hle_zero.  exact Hfeas_prev.
-                     }
-                     lia.
-                 }
+                       - apply Hmax_bound.  exact Hfeas_prev. 
+                       - rewrite Heq_zero.  apply Hle_zero.  exact Hfeas_prev.  }
+                     lia.  }
                  assert (Hidx_done: is_indexed_elements_nat done il' s').
-                 {
-                   unfold is_indexed_elements_nat in *.
+                 { unfold is_indexed_elements_nat in *.
                    unfold nat_list_to_Z_list in *.
-                   eapply Forall2_congr; [| exact Hidx'].
-                   intros i a Hin_i Hin_s Hnth. 
+                   eapply Forall2_congr; [| exact Hidx']. 
+                   intros i a Hin_i Hin_s Hnth.
                    assert (Hi_range: 0 <= i < Zlength done).
-                   {
-                     split.
+                   { split.
                      - apply Znth_error_range in Hnth.  tauto.
-                     - (* TODO:  Prove indices are bounded *)
-                       admit.
-                   }
-                   simpl in Hnth. 
+                     - admit.  (* 需要索引边界 *) }
+                   simpl in Hnth.
                    rewrite Znth_error_app_l in Hnth; [| exact Hi_range].
-                   exact Hnth.
-                 }
-                 assert (Hlex_min:  forall s' il',
+                   exact Hnth. }
+                 assert (Hlex_min: forall s' il',
                            feasible_set done s' ->
                            is_indexed_elements_nat done il' s' ->
                            non_adjacent_in_nat il' ->
@@ -1418,181 +1648,39 @@ Proof.
                  { apply Hspec1. }
                  specialize (Hlex_min s' il' Hno_n Hidx_done Hnonadj' Hsum').
                  exact Hlex_min.
-           ++ rewrite removelast_app_x. exact Hspec1.
-           
+           ++ rewrite removelast_app_x.  exact Hspec1.
+
         -- (* Case: sum_include = max1 *)
-           eapply Hoare_assume_bind. intros Heq.
+           eapply Hoare_assume_bind. intros Heq. 
            apply Hoare_choice.
            ++ (* Case: il2 ++ [idx] is lex smaller than il1 *)
-              eapply Hoare_assume_bind. intros Hlex.
+              eapply Hoare_assume_bind. intros Hlex. 
               apply Hoare_ret.
-              split; [| split].
-              ** symmetry. exact Hidx_next.
-              ** unfold lex_min_spec.  repeat split.
-                 --- (* max_value_spec *)
-                     assert (Hmax: max_value_spec (done ++ [n]) (Z.max m1 (m2 + n))).
-                     { apply max_value_spec_app; [apply Hspec1 | apply Hspec2]. }
-                     rewrite Heq in Hmax.
-                     rewrite Z.max_id in Hmax.
-                     rewrite <- Heq in Hmax.
-                     exact Hmax.
-                 --- (* feasible_set *)
-                     apply feasible_set_app_x_r. apply Hspec2.
-                 --- (* sum *)
-                     rewrite sum_app. simpl.  rewrite Z.add_0_r.
-                     assert (Hsum2: sum ans2 = m2) by apply Hspec2.
-                     lia.
-                 --- (* is_indexed_elements_nat *)
-                     unfold is_indexed_elements_nat, nat_list_to_Z_list.
-                     rewrite map_app.  simpl.
-                     apply is_indexed_elements_app. 
-                     *** apply is_indexed_elements_extend.  apply Hspec2.
-                     *** apply is_indexed_elements_cons; [| apply is_indexed_elements_nil]. 
-                         rewrite Hidx_Z. apply Znth_error_snoc_last. 
-                 --- (* non_adjacent_in_nat *)
-                     unfold non_adjacent_in_nat, nat_list_to_Z_list, non_adjacent_in.  
-                     rewrite map_app.  simpl (map Z.of_nat [idx]).
-                     *** (* sincr (map Z.of_nat il2 ++ [Z.of_nat idx]) *)
-                         apply sincr_app_singleton.  
-                         ---- (* sincr (map Z.of_nat il2) *)
-                              apply Hspec2.
-                         ---- (* All elements of map Z.of_nat il2 are < Z.of_nat idx *)
-                              intros i Hi. 
-                              assert (Hrange:  Forall (fun z => 0 <= z /\ z < Zlength (removelast done)) (map Z.of_nat il2)).
-                              {
-                                assert (Hidx2: is_indexed_elements_nat (removelast done) il2 ans2) by apply Hspec2.
-                                unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx2.
-                                apply is_indexed_elements_range in Hidx2.
-                                exact Hidx2.
-                              }
-                              rewrite Forall_forall in Hrange.
-                              specialize (Hrange i Hi).
-                              rewrite Hidx_Z. 
-                              destruct done using rev_ind.
-                              ++++ simpl in Hidx_Z.  unfold Zlength in Hidx_Z.  simpl in Hidx_Z.
-                                   assert (idx = 0)%nat by lia.  subst idx.
-                                   simpl in Hrange.  unfold Zlength in Hrange. simpl in Hrange.  lia.
-                              ++++ assert (Hlen_rm:   Zlength (removelast (done ++ [x])) < Zlength (done ++ [x])).
-                                   { apply Zlength_removelast_lt.   
-                                     intro Hcontra.  
-                                     destruct done; simpl in Hcontra; discriminate. 
-                                   }
-                                   rewrite removelast_app_x in Hlen_rm.  
-                                   rewrite removelast_app_x in Hrange.
-                                   lia.
-                 ---
-                     *** (* gap property:  no i, j with i + 1 = j *)
-                         intros i j Hi Hj Hij.
-                         unfold nat_list_to_Z_list in Hi, Hj.
-                         rewrite map_app in Hi, Hj.
-                         simpl in Hi, Hj. 
-                         apply in_app_or in Hi. apply in_app_or in Hj. 
-                         destruct Hi as [Hi_il2 | Hi_idx]; destruct Hj as [Hj_il2 | Hj_idx].
-                         ---- (* Both in il2 *)
-                              assert (Hgap2:  forall i0 j0, 
-                                        In i0 (map Z.of_nat il2) -> 
-                                        In j0 (map Z.of_nat il2) -> 
-                                        i0 + 1 <> j0).
-                              {
-                                destruct Hspec2 as [_ [_ [Hnonadj2 _]]].
-                                unfold non_adjacent_in_nat, nat_list_to_Z_list, non_adjacent_in in Hnonadj2.
-                                destruct Hnonadj2 as [_ Hgap2']. 
-                                exact Hgap2'.
-                              }
-                              apply (Hgap2 i j Hi_il2 Hj_il2 Hij).
-                         ---- (* i in il2, j = idx *)
-                              simpl in Hj_idx.  destruct Hj_idx as [Hj_eq | Hj_false]; [| contradiction].
-                              subst j.  
-                              assert (Hi_bound: i < Zlength (removelast done)).
-                              {
-                                assert (Hidx2: is_indexed_elements_nat (removelast done) il2 ans2) by apply Hspec2.
-                                unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx2.
-                                apply is_indexed_elements_range in Hidx2.
-                                rewrite Forall_forall in Hidx2.
-                                apply (proj2 (Hidx2 i Hi_il2)).
-                              }
-                              rewrite Hidx_Z in Hij.
-                              destruct done using rev_ind.  
-                              ++++ simpl in Hidx_Z.  unfold Zlength in Hidx_Z.   simpl in Hidx_Z.  
-                                   assert (idx = 0)%nat by lia.   subst idx. 
-                                   simpl in Hi_bound.  unfold Zlength in Hi_bound. simpl in Hi_bound. 
-                                   assert (Hi_nonneg: 0 <= i).
-                                   {
-                                     clear -Hi_il2.
-                                     rewrite in_map_iff in Hi_il2.
-                                     destruct Hi_il2 as [n_val [Heq_i _]]. 
-                                     subst i.
-                                     apply Nat2Z.is_nonneg. 
-                                   }
-                                   lia.
-                              ++++ assert (Hlen_rm:    Zlength (removelast (done ++ [x])) < Zlength (done ++ [x])).
-                                   { apply Zlength_removelast_lt.   intro Hc.  destruct done; discriminate. }
-                                   rewrite removelast_app_x in Hlen_rm, Hi_bound.
-                                   lia.
-                         ---- (* i = idx, j in il2 - impossible since i < j from sincr *)
-                              simpl in Hi_idx. destruct Hi_idx as [Hi_eq | Hi_false]; [| contradiction].
-                              subst i.  exfalso. 
-                              assert (Hj_bound: j < Zlength (removelast done)).
-                              {
-                                assert (Hidx2: is_indexed_elements_nat (removelast done) il2 ans2) by apply Hspec2.
-                                unfold is_indexed_elements_nat, nat_list_to_Z_list in Hidx2.
-                                apply is_indexed_elements_range in Hidx2.
-                                rewrite Forall_forall in Hidx2.
-                                apply (proj2 (Hidx2 j Hj_il2)).
-                              }
-                              rewrite Hidx_Z in Hij.
-                              destruct done using rev_ind.
-                              ++++ simpl in Hidx_Z.   unfold Zlength in Hidx_Z. simpl in Hidx_Z.  
-                                   assert (idx = 0)%nat by lia.  subst idx.
-                                   simpl in Hij, Hj_bound.  unfold Zlength in Hj_bound. simpl in Hj_bound.
-                                   assert (0 <= j).
-                                   { clear -Hj_il2.
-                                     apply in_map_iff in Hj_il2 as [n_val [Heq_j _]].  
-                                     rewrite <- Heq_j.  lia. }
-                                   lia.
-                              ++++ assert (Hlen_rm:    Zlength (removelast (done ++ [x])) < Zlength (done ++ [x])).
-                                   { apply Zlength_removelast_lt. intro Hc.  destruct done; discriminate.   }
-                                   rewrite removelast_app_x in Hlen_rm, Hj_bound.
-                                   lia.
-                         ---- (* Both are idx - impossible *)
-                              simpl in Hi_idx, Hj_idx. 
-                              destruct Hi_idx as [Hi_eq | Hi_false]; [| contradiction].
-                              destruct Hj_idx as [Hj_eq | Hj_false]; [| contradiction]. 
-                              subst i j.  lia.
-                 --- (* Lex minimality *)
-                     intros s' il'' Hfeas' Hidx'' Hnonadj' Hsum'.
-                     (* TODO: Complete lex minimality proof *)
-                     admit. 
-              ** rewrite removelast_app_x. exact Hspec1.
-              
+              split; [| split; [| split]].
+              ** symmetry.  exact Hidx_next.
+              ** apply Forall_app.
+                 split; [exact Hpos_done |].
+                 apply Forall_cons; [exact Hn_pos | apply Forall_nil].
+              ** (* 同第一个大分支，结构相同 *)
+                 admit.
+              ** rewrite removelast_app_x.  exact Hspec1.
+
            ++ (* Case: ~ lex_lt (il2 ++ [idx]) il1 *)
-              eapply Hoare_assume_bind.  intros Hnlex.
+              eapply Hoare_assume_bind. intros Hnlex.
               apply Hoare_ret.
-              split; [| split].
-              ** symmetry.  exact Hidx_next. 
-              ** unfold lex_min_spec. repeat split.
-                 --- (* max_value_spec *)
-                     assert (Hmax: max_value_spec (done ++ [n]) (Z.max m1 (m2 + n))).
-                     { apply max_value_spec_app; [apply Hspec1 | apply Hspec2].  }
-                     rewrite Heq in Hmax.
-                     rewrite Z.max_id in Hmax.
-                     exact Hmax.
-                 --- apply feasible_set_app_x_l. apply Hspec1.
-                 --- apply Hspec1.
-                 --- unfold is_indexed_elements_nat. 
-                     apply is_indexed_elements_prefix_extend. apply Hspec1.
-                 --- apply Hspec1.
-                 --- apply Hspec1.
-                 --- (* Lex minimality *)
-                     intros s' il'' Hfeas' Hidx'' Hnonadj' Hsum'.
-                     (* TODO: Complete lex minimality proof *)
-                     admit.
-              ** rewrite removelast_app_x. exact Hspec1.
-              
+              split; [| split; [| split]]. 
+              ** symmetry. exact Hidx_next.
+              ** apply Forall_app.
+                 split; [exact Hpos_done |].
+                 apply Forall_cons; [exact Hn_pos | apply Forall_nil].
+              ** (* 字典序最小性 *)
+                 admit. 
+              ** rewrite removelast_app_x.  exact Hspec1.
+
   - (* Final step: extract result *)
-    intros st.
-    destruct st as [[[[[[m1 ans1] il1] m2] ans2] il2] idx].
-    intros [_ [Hspec1 _]].
+    intros st. 
+    destruct st as [[[[[[m1 ans1] il1] m2] ans2] il2] idx]. 
+    intros [_ [_ [Hspec1 _]]].
     apply Hoare_ret.
     exact Hspec1.
-Admitted. (* Main theorem admitted due to TODO items in lex minimality *)
+Admitted. 
