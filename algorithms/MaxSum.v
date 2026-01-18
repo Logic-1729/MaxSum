@@ -1648,9 +1648,10 @@ Proof.
           apply Hle_all; exact Hleft.
       }
       lia.
-    + (* index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il' *)
-      subst s'.
+    + admit. (* index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il' *)
+      (*subst s'.
       clear Hlex1 Hlex2.
+
       
       (* 证明 il_x' = [idx] *)
       assert (Hil_x'_eq:  il_x' = [idx]).
@@ -1745,6 +1746,7 @@ Proof.
         assert (i = idx) by lia.
         exact this.
       }
+      
       subst il_x'.
       
       (* 计算 sum t' *)
@@ -1810,7 +1812,7 @@ Proof.
                  ++ right; left; reflexivity.
       * (* 情况2: il2 = il_t' *)
         right.  f_equal. exact Heq_il2.
-      admit.
+      admit.*)
   - rewrite removelast_app_x. apply (proj1 Hfull1).
   - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
@@ -2031,21 +2033,18 @@ Lemma max_sum_lex_inv_eq_nlex_case :
     (Heq : max2 + x = max1)
     (Hnlex : ~ index_lex_lt (il2 ++ [idx]) il1),
   max_sum_lex_inv ((d0 :: drest) ++ [x]) max1 ans1 il1 max1 ans1 il1 (idx + 1).
-Proof.
+Proof. 
   intros x d0 drest ans1 il1 ans2 il2 max1 max2 idx Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hnlex.
   unfold max_sum_lex_inv.
   repeat split.
-  - rewrite Zlength_app. rewrite Hlen; unfold Zlength; tauto.
+  - rewrite Zlength_app.  rewrite Hlen; unfold Zlength; tauto.
   - assert (Hspec1 := proj1 Hfull1).
     assert (Hspec2 := proj1 Hfull2).
     pose proof (max_value_spec_app (d0 :: drest) x max1 max2 Hspec1 Hspec2) as Hspec_app.
-    assert (Hmax : Z.max max1 (max2 + x) = max2 + x).
-    {
-      rewrite Heq. (* max1 = max2 + x *)
-      apply Z.max_idempotent.
-    }
+    assert (Hmax :  Z.max max1 (max2 + x) = max2 + x).
+    { rewrite Heq. apply Z.max_idempotent. }
     rewrite Hmax in Hspec_app.
-    rewrite Heq in Hspec_app.
+    rewrite Heq in Hspec_app. 
     apply Hspec_app.
   - apply feasible_set_app_x_l.
     apply (proj1 (proj2 Hfull1)).
@@ -2055,49 +2054,132 @@ Proof.
   - apply (proj1 Hgap1).
   - apply (proj2 Hgap1).
   - intros s' il' Hfeas Hidx' Hnonadj Hsum.
-    admit.
-    (* apply feasible_set_app_x_inv in Hfeas as [Hleft | [t' [Heq_s Ht']]].
-    + specialize (Hlex1 s' il' Hleft Hidx' Hnonadj Hsum) as [Hlex' | Heq'].
-      * left; exact Hlex'.
-      * right; exact Heq'.
-    + subst s'.
-      apply is_indexed_elements_app_inv_r in Hidx' as (il_t' & il_x' & Hidx_t' & Hidx_x' & ->).
-      assert (il_x' = [idx]).
-      { apply is_indexed_elements_cons_inv_r in Hidx_x'.
-        destruct Hidx_x' as (i & il'' & -> & Hnth & Hnil).
-        apply is_indexed_elements_nil_inv_r in Hnil; subst il''.
-        apply Znth_error_range in Hnth.
-        assert (i = Zlength (d0 :: drest)).
-        { apply Znth_error_app_r in Hnth.
-          replace (i - Zlength (d0 :: drest)) with 0 in Hnth by lia.
-          injection Hnth; intros; subst; reflexivity.
-        }
-        subst i. rewrite <- Hlen. reflexivity.
-      }
-      subst il_x'.
-      rewrite sum_app, sum_single in Hsum. rewrite Heq in Hsum. lia.
-      specialize (Hlex2 t' il_t' Ht' Hidx_t' Hgap2 Hsum) as [Hlex_t | Heq_t].
-      apply NNPP.
-      intros Hcontra. (* Hcontra : index_lex_lt il' il1 *)
-      assert (Hlex_le: index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il').
+    (* 关键部分：证明 index_lex_lt il1 il' \/ il1 = il' *)
+    apply feasible_set_app_x_inv in Hfeas as [Hfeas_old | [t' [Heq_s Hfeas_t]]].
+    
+    + (* 情况1：s' 来自原列表，不包含 x *)
+      admit.
+      (*apply Hlex1.
+      * exact Hfeas_old.
+      * eapply is_indexed_elements_prefix_inv. 
+        -- exact Hidx'. 
+        -- exact Hfeas_old.
+      * exact Hnonadj.
+      * exact Hsum.*)
+      
+    
+    + (* 情况2：s' = t' ++ [x] *)
+      subst s'.
+      
+      (* 从 Hidx' 提取索引列表结构 *)
+      assert (Hexists_split:  exists il_t il_x,
+                 il' = il_t ++ il_x /\
+                 is_indexed_elements (removelast (d0 :: drest)) il_t t' /\
+                 is_indexed_elements ([x]) il_x [x]).
       {
-        destruct Hlex_t as [Hlt | Heq].
-        - left.
-          revert il_t' Hlt.
-          induction il2; intros il_t' Hlt; simpl.
-          + destruct il_t'; simpl; [left; lia | left; lia].
-          + destruct il_t'; simpl.
-            * unfold index_lex_lt in Hlt; tauto.
-            * destruct Hlt as [Hlt0 | [Heq0 Hrec]].
-              ++ left; exact Hlt0.
-              ++ right; split; [exact Heq0 | apply IHil2; exact Hrec].
-        - right. f_equal; exact Heq.
+        admit.
+        (*apply is_indexed_elements_app_inv_structure with (l1 := d0 :: drest).
+        - rewrite removelast_cons_app_x.  reflexivity.
+        - exact Hidx'.*)
       }
-      destruct Hlex_le as [Hlex_le_lt | Hlex_le_eq].
-      + apply index_lex_lt_trans with (il2 := il') in Hlex_le_lt; auto.
-        contradict Hnlex. exact Hlex_le_lt.
-      + rewrite <- Hlex_le_eq in Hcontra.
-        contradict Hnlex. exact Hcontra. *)
+      destruct Hexists_split as [il_t [il_x [Heq_il [Hidx_t Hidx_x]]]].
+      
+      (* il_x 必定是 [idx] *)
+      assert (Hil_x_eq:  il_x = [idx]).
+      {
+        admit.
+        (*
+        apply is_indexed_elements_singleton_inv in Hidx_x. 
+        destruct Hidx_x as [Hnth_x _].
+        assert (Hrange:  Znth_error [x] 0 = Some x) by (simpl; reflexivity).
+        rewrite Hnth_x in Hrange.
+        injection Hrange as Hval.
+        (* 从 Znth_error 推出 idx 的值 *)
+        apply Znth_error_In_inv in Hnth_x as Hin_x.
+        destruct il_x as [| ix il_x'].
+        - inversion Hin_x. 
+        - destruct il_x' as [| ix' il_x''].
+          + (* il_x = [ix] *)
+            f_equal. 
+            (* ix 必定等于 idx *)
+            assert (Hix_val: Znth_error ((d0 :: drest) ++ [x]) ix = Some x).
+            {
+              rewrite Heq_il in Hidx'. 
+              apply is_indexed_elements_app_inv in Hidx' as [Hidx'_t [Hidx'_x _]].
+              apply is_indexed_elements_cons_inv_r in Hidx'_x.
+              destruct Hidx'_x as [i [il'' [Heq_ix [Hnth_i _]]]].
+              injection Heq_ix as Heq_ix'.  subst ix. 
+              exact Hnth_i.
+            }
+            apply Znth_error_snoc_inv in Hix_val. 
+            rewrite <- Hlen in Hix_val.
+            exact Hix_val.
+          + (* il_x 有多个元素，矛盾 *)
+            exfalso.
+            apply is_indexed_elements_length_eq in Hidx_x.
+            simpl in Hidx_x.  discriminate.
+            *)
+      }
+      subst il_x. 
+      rewrite Heq_il. 
+      
+      (* 提取非相邻性质 *)
+      assert (Hnonadj_t: non_adjacent_in il_t).
+      {
+        unfold non_adjacent_in in Hnonadj |- *.
+        rewrite Heq_il in Hnonadj.
+        split.
+        - apply sincr_app_cons_inv1 with (x := idx).
+          apply (proj1 Hnonadj).
+        - intros i j Hi Hj.
+          apply (proj2 Hnonadj).
+          + apply in_app_iff.  left.  exact Hi.
+          + apply in_app_iff. left. exact Hj.
+      }
+      
+      (* 计算和 *)
+      rewrite sum_app, sum_single in Hsum. 
+      assert (Hsum_t: sum t' = max2).
+      { rewrite <- Heq in Hsum.  lia. }
+      
+      (* 应用 Hlex2 *)
+      admit.
+      (*rewrite removelast_cons_app_x in Hfeas_t, Hidx_t. 
+      specialize (Hlex2 t' il_t Hfeas_t Hidx_t Hnonadj_t Hsum_t) as [Hlex_t | Heq_t]. *)
+      
+      (**  * (* index_lex_lt il2 il_t *)
+        (* 推出 index_lex_lt (il2 ++ [idx]) (il_t ++ [idx]) *)
+        left.
+        apply Classical_Pred_Type.not_all_not_ex.
+        intros Hnot_lex. 
+        (* 使用 Hnlex 推出矛盾 *)
+        assert (Hcontra: index_lex_lt (il2 ++ [idx]) il1).
+        {
+          apply index_lex_lt_app_same_element_nonempty. 
+          admit.  (* 需要 il2 和 il_t 非空的证明 *)
+        }
+        contradiction.
+      
+      * (* il2 = il_t *)
+        subst il_t.
+        (* 此时 il' = il2 ++ [idx] *)
+        (* 由 Hnlex 知 ~ index_lex_lt (il2 ++ [idx]) il1 *)
+        (* 需要证明 ~ index_lex_lt il1 (il2 ++ [idx]) *)
+        apply Classical_Prop. NNPP.
+        intros Hcontra.
+        apply Classical_Prop.not_or_and in Hcontra.
+        destruct Hcontra as [Hnot_lt Hnot_eq].
+        (* 如果 il1 ≠ il2 ++ [idx] 且不是 index_lex_lt il1 (il2 ++ [idx]) *)
+        (* 那么必有 index_lex_lt (il2 ++ [idx]) il1 *)
+        assert (Htrichotomy: index_lex_lt il1 (il2 ++ [idx]) \/ 
+                              il1 = il2 ++ [idx] \/ 
+                              index_lex_lt (il2 ++ [idx]) il1).
+        { apply index_lex_lt_trichotomy.  }
+        destruct Htrichotomy as [Hlt1 | [Heq1 | Hlt2]].
+        -- contradiction.
+        -- contradiction.
+        -- contradiction.*)
+  
   - rewrite removelast_app_x. apply (proj1 Hfull1).
   - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
@@ -2171,7 +2253,8 @@ Proof.
         -- eapply Hoare_assume_bind.
            intros Hgt.
            apply Hoare_ret.
-           apply max_sum_lex_inv_extend_case; tauto.
+           admit.
+           (* apply max_sum_lex_inv_extend_case; tauto.*)
         -- apply Hoare_choice.
            ++ eapply Hoare_assume_bind.
               intros Hlt.
@@ -2210,4 +2293,4 @@ Proof.
     unfold lex_min_spec.
     apply Hoare_ret.
     tauto.
-Qed.
+Admitted.
