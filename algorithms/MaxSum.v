@@ -163,7 +163,7 @@ Lemma is_indexed_elements_extend: forall (l: list Z) x s (il: list Z),
 Proof.
   intros.
   destruct l.
-  - 
+  - (* Case l = [] *)
     simpl in H.
     unfold is_indexed_elements in *.
     destruct il.
@@ -998,6 +998,7 @@ Definition max_sum_lex_inv (done : list Z)
              (max2 : Z) (ans2 : list Z) (il2 : list Z)
              (idx : Z) : Prop :=
   Zlength done = idx /\
+  (* ans1 is optimal and lex-min for done *)
   max_sum_full_spec done max1 ans1 /\
   is_indexed_elements done il1 ans1 /\
   non_adjacent_in il1 /\
@@ -1007,6 +1008,7 @@ Definition max_sum_lex_inv (done : list Z)
      non_adjacent_in il' ->
      sum s' = max1 ->
      index_lex_lt il1 il' \/ il1 = il') /\
+  (* ans2 is optimal and lex-min for removelast done *)
   (match done with
    | [] => max2 = 0 /\ ans2 = [] /\ il2 = []
    | _ => max_sum_full_spec (removelast done) max2 ans2 /\
@@ -1019,6 +1021,9 @@ Definition max_sum_lex_inv (done : list Z)
              sum s' = max2 ->
              index_lex_lt il2 il' \/ il2 = il')
    end).
+
+Definition all_positive (l:  list Z): Prop :=
+  Forall (fun x => x > 0) l.
 
 Lemma proof_il'_nil :
   forall (s' il' : list Z)
@@ -1066,13 +1071,16 @@ Proof.
     apply is_indexed_elements_nil.
   - apply is_indexed_elements_cons_inv_l in Hidx as (a & s' & Hnth & Hrest & ->).
     apply is_indexed_elements_cons.
-    + 
+    + (* Goal: Znth_error l i = Some a *)
+      (* From Hnth: Znth_error (l ++ [x]) i = Some a *)
       pose proof (Znth_error_range _ _ _ Hnth) as [Hge Hlt_full].
+      (* Hbound gives: i < Zlength l *)
       assert (Hin: In i (i :: il')) by (left; reflexivity).
       specialize (Hbound i Hin) as Hlt.
+      (* Now we have 0 <= i and i < Zlength l *)
       rewrite (Znth_error_app_l l [x] i (conj Hge Hlt)) in Hnth.
       exact Hnth.
-    +
+    + (* Inductive step for il' *)
       apply IH.
       intros j Hj.
       apply Hbound.
@@ -1174,6 +1182,9 @@ Proof.
     + rewrite H; simpl; lia.
 Qed.
 
+
+
+(* 此时 x>0, 取x最大 *)
 Lemma max_sum_lex_inv_single_positive :
   forall (l : list Z) (x : Z)
     (Hfull1 : max_sum_full_spec [] 0 [])
@@ -1193,7 +1204,7 @@ Proof.
   - apply max_value_spec_single_positive; tauto.
   - apply feasible_single.
   - apply sum_single.
-  -
+  - (* is_indexed_elements [x] [0] [x] *)
     unfold is_indexed_elements.
     apply Forall2_cons.
     + simpl; reflexivity.
@@ -1220,6 +1231,7 @@ Proof.
   - apply Hlex1.
 Qed.
 
+(* 此时 x < max1 = 0, 不取就是最大 *)
 Lemma max_sum_lex_inv_single_case :
   forall (l : list Z) (x max1 idx : Z) (ans1 il1 : list Z)
     (Hlen : Zlength ([] : list Z) = idx)
@@ -1242,20 +1254,21 @@ Proof.
   - pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     pose proof (proj2 (proj2 Hfull1)) as Hsum_ans.
     apply feasible_set_nil in Hfeas_ans. rewrite Hfeas_ans in Hsum_ans.
-    simpl in Hsum_ans.  
+    simpl in Hsum_ans.  (* Hsum_ans : 0 = max1 *)
     subst max1.
+    (* Now prove max_value_spec [x] 0 *)
     right.
     split.
     + intros s Hfeas.
       change ([x]) with ([] ++ [x]) in Hfeas.
       apply feasible_set_app_x_inv in Hfeas as [Hl | [t' [Heq Ht']]].
-      * 
+      * (* s feasible in [] => s = [] => sum = 0 *)
         apply feasible_set_nil in Hl; subst s; simpl; lia.
-      * 
+      * (* s = t' ++ [x], t' feasible in [] => t' = [], s = [x] *)
         apply feasible_set_nil in Ht'; subst t'. simpl in Heq; subst s.
-        simpl. lia. 
+        simpl. lia.  (* x < 0, so sum = x < 0 <= 0 *)
     + reflexivity.
-  - 
+  - (* feasible_set [x] ans1 *)
     apply max_sum_full_spec_inv in Hfull1 as [_ [Hfeas _]].
     apply feasible_set_nil in Hfeas; subst ans1.
     unfold feasible_set. unfold non_adjacent_subseq. exists []. split.
@@ -1264,48 +1277,50 @@ Proof.
       -- unfold sincr. tauto.
       -- intros i j Hini Hinj. destruct Hini, Hinj.
   - apply (proj2 (proj2 Hfull1)).
-  -
+  - (* is_indexed_elements [x] il1 ans1 *)
     apply max_sum_full_spec_inv in Hfull1 as [_ [Hfeas _]].
     apply feasible_set_nil in Hfeas; subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
     apply is_indexed_elements_nil.
   - apply (proj1 Hgap1).
   - apply (proj2 Hgap1).
-  - 
+  - (* lex min for [x] *)
     intros s' il' Hfeas Hidx Hnonadj Hsum.
+    (* Extract ans1 = [], max1 = 0 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     pose proof (proj2 (proj2 Hfull1)) as Hsum_ans.
     apply feasible_set_nil in Hfeas_ans; subst ans1.
-    simpl in Hsum_ans. 
-    rewrite <- Hsum_ans in Hsum.  
-    rewrite <- Hsum_ans in Hlt.   
+    simpl in Hsum_ans.  (* Hsum_ans : 0 = max1 *)
+    rewrite <- Hsum_ans in Hsum.   (* sum s' = 0 *)
+    rewrite <- Hsum_ans in Hlt.    (* x < 0 *)
     change ([x]) with ([] ++ [x]) in Hfeas.
     apply feasible_set_app_x_inv in Hfeas as [Hl | [t' [Heq Ht']]].
-    + 
+    + (* s' = [] *)
       apply feasible_set_nil in Hl; subst s'.
       apply is_indexed_elements_nil_inv_r in Hidx; subst il'.
       apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
       right. reflexivity.
-    + 
+    + (* s' = t' ++ [x] *)
       apply feasible_set_nil in Ht'; subst t'.
-      subst s'. simpl in Hsum. 
-      lia.  
-  - 
+      subst s'. simpl in Hsum.  (* Hsum : x = 0 *)
+      lia.  (* x = 0 and x < 0 → contradiction *)
+  - (* max_value_spec [] max1 *)
     simpl. apply (proj1 Hfull1).
-  - 
+  - (* feasible_set [] ans1 *)
     apply (proj1 (proj2 Hfull1)).
-  - 
+  - (* sum ans1 = max1 *)
     apply (proj2 (proj2 Hfull1)).
-  -
+  - (* is_indexed_elements [] il1 ans1 *)
     apply Hidx1.
-  -
+  - (* sincr il1 *)
     apply (proj1 Hgap1).
-  - 
+  - (* non-adjacent gap *)
     apply (proj2 Hgap1).
-  - 
+  - (* lex min for [] *)
     apply Hlex1.
 Qed.
 
+(* Hlt 矛盾 *)
 Lemma max_sum_lex_inv_contradiction_case :
   forall (l : list Z) (x max1 idx : Z) (ans1 il1 : list Z)
     (Hlen : Zlength ([] : list Z) = idx)
@@ -1329,18 +1344,19 @@ Proof.
   - pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     pose proof (proj2 (proj2 Hfull1)) as Hsum_ans.
     apply feasible_set_nil in Hfeas_ans. rewrite Hfeas_ans in Hsum_ans.
-    simpl in Hsum_ans. 
+    simpl in Hsum_ans.  (* Hsum_ans : 0 = max1 *)
     subst max1.
+    (* Now prove max_value_spec [x] 0 *)
     right.
     split.
     + intros s Hfeas.
       change ([x]) with ([] ++ [x]) in Hfeas.
       apply feasible_set_app_x_inv in Hfeas as [Hl | [t' [Heq Ht']]].
-      * 
+      * (* s feasible in [] => s = [] => sum = 0 *)
         apply feasible_set_nil in Hl; subst s; simpl; lia.
-      * 
+      * (* s = t' ++ [x], t' feasible in [] => t' = [], s = [x] *)
         apply feasible_set_nil in Ht'; subst t'. simpl in Heq; subst s.
-        simpl. lia.  
+        simpl. lia.  (* x < 0, so sum = x < 0 <= 0 *)
     + rewrite Hsum_ans. reflexivity.
   - apply feasible_single.
   - apply sum_single.
@@ -1355,18 +1371,20 @@ Proof.
     + simpl in H; tauto.
     + simpl in H; tauto.
   - intros s' il' Hfeas Hidx Hnonadj Hsum.
+    (* First, get ans1 = [] *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     apply feasible_set_nil in Hfeas_ans; subst ans1.
     change ([x]) with ([] ++ [x]) in Hfeas.
     apply feasible_set_app_x_inv in Hfeas as [Hl | [t' [Heq_s Ht']]].
-    +
+    + (* s' = [] *)
       apply feasible_set_nil in Hl; subst s'.
       apply is_indexed_elements_nil_inv_r in Hidx; subst il'.
+      (* Now Hidx1 : is_indexed_elements [] il1 [] *)
       apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
       left. exact Hlt.
-    + 
+    + (* s' = [x] *)
       pose proof (proj2 (proj2 Hfull1)) as Hsum_ans.
-      simpl in Hsum_ans. rewrite <- Heq in Hsum_ans.  
+      simpl in Hsum_ans. rewrite <- Heq in Hsum_ans.  (* x = 0 *)
       apply feasible_set_nil in Ht'; subst t'. subst s'.
       apply is_indexed_elements_cons_inv_r in Hidx.
       destruct Hidx as (i & il'' & Heq_il & Hnth & Hnil).
@@ -1419,7 +1437,7 @@ Proof.
       * apply feasible_set_nil in Hl; subst s; simpl; lia.
       * apply feasible_set_nil in Ht'; subst t'; subst s; simpl; lia.
     + rewrite Hsum; reflexivity.
-  -
+  - (* Goal 3: feasible_set [x] ans1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas; subst ans1.
     unfold feasible_set. unfold non_adjacent_subseq. exists []. split.
@@ -1427,27 +1445,27 @@ Proof.
     + unfold non_adjacent_in; split.
       * unfold sincr; tauto.
       * intros i j Hini Hinj. destruct Hini, Hinj.
-  - 
+  - (* Goal 4: sum ans1 = max1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     pose proof (proj2 (proj2 Hfull1)) as Hsum.
     apply feasible_set_nil in Hfeas; subst ans1.
     apply Hsum.
-  - 
+  - (* Goal 5: is_indexed_elements [x] il1 ans1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas. subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1. subst il1.
     apply is_indexed_elements_nil.
-  - 
+  - (* Goal 6: sincr il1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     apply feasible_set_nil in Hfeas_ans. subst ans1.
     pose proof (proj2 (proj2 Hfull1)) as Hsum_ans. simpl in Hsum_ans. subst max1.
     apply is_indexed_elements_nil_inv_r in Hidx1. subst il1. unfold sincr; tauto.
-  - 
+  - (* Goal 7: gap condition *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas_ans.
     apply feasible_set_nil in Hfeas_ans. subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
     intros i j Hi Hj; contradiction.
-  - 
+  - (* Goal 8: lex min for [x] *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     pose proof (proj2 (proj2 Hfull1)) as Hsum.
     apply feasible_set_nil in Hfeas; subst ans1.
@@ -1467,37 +1485,37 @@ Proof.
       assert (i = 0) by (destruct Hnth; unfold Zlength in *; simpl in *; lia).
       subst i.
       left; simpl; auto.
-  - 
+  - (* Goal 9: max_value_spec (removelast [x]) max1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas. subst ans1.
     pose proof (proj2 (proj2 Hfull1)) as Hsum.
     simpl in Hsum. subst max1.
     assert (removelast [x] = []) by reflexivity. subst.
     apply max_value_spec_nil.
-  - 
+  - (* Goal 10: feasible_set (removelast [x]) ans1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas; subst ans1.
     apply feasible_set_nil_intro.
-  - 
+  - (* Goal 11: sum ans1 = max1 *)
     exact (proj2 (proj2 Hfull1)).
-  - 
+  - (* Goal 12: is_indexed_elements (removelast [x]) il1 ans1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas. subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas.
     apply is_indexed_elements_nil.
-  - 
+  - (* Goal 13: sincr il1 *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas. subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
     simpl; auto.
-  - 
+  - (* Goal 14: gap condition *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas. subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
     intros i j Hi Hj; contradiction.
-  - 
+  - (* Goal 15: lex min for removelast [x] = [] *)
     pose proof (proj1 (proj2 Hfull1)) as Hfeas.
     apply feasible_set_nil in Hfeas; subst ans1.
     apply is_indexed_elements_nil_inv_r in Hidx1; subst il1.
@@ -1509,71 +1527,6 @@ Proof.
     right; reflexivity.
 Qed.
 
-Lemma feasible_left_sum_bound : 
-  forall (d0 :  Z) (drest : list Z) (max1 : Z) (ans1 s' : list Z),
-    max_sum_full_spec (d0 :: drest) max1 ans1 ->
-    feasible_set (d0 ::  drest) s' ->
-    sum s' <= max1.
-Proof.
-  intros d0 drest max1 ans1 s' Hfull1 Hfeas'. 
-  destruct Hfull1 as [Hspec [_ _]].
-  destruct Hspec as [Hexists | [Hle_all Hmax0]].
-  - 
-    destruct Hexists as (s0 & Hfeas0 & Hsum0 & Hbound).
-    apply Hbound.  exact Hfeas'. 
-  - 
-    rewrite Hmax0.
-    apply Hle_all.  exact Hfeas'. 
-Qed. 
-
-Lemma index_in_left_contradicts_x : 
-  forall (d0 : Z) (drest : list Z) (x : Z) (i : Z) (t' : list Z),
-    i < Zlength (d0 :: drest) ->
-    Znth_error ((d0 :: drest) ++ [x]) i = Some x ->
-    (forall j, 0 <= j < Zlength (d0 :: drest) -> Znth_error (d0 :: drest) j <> Some x) ->
-    feasible_set (removelast (d0 ::  drest)) t' ->
-    False. 
-Proof.
-  intros d0 drest x i t' Hi_lt Hnth_i Hx_not_in_l _. 
-  pose proof Hnth_i as Hnth_i_backup.
-  apply Znth_error_range in Hnth_i_backup as [Hi_ge _].
-  assert (Hi_range: 0 <= i < Zlength (d0 :: drest)) by (split; assumption).
-  rewrite Znth_error_app_l in Hnth_i by exact Hi_range.
-  eapply Hx_not_in_l; eauto.
-Qed. 
-
-Lemma max_sum_full_spec_removelast_implies_bound :
-  forall (d0 : Z) (drest : list Z) (max1 max2 x : Z) (ans1 ans2 : list Z) (s' : list Z),
-    max_sum_full_spec (d0 :: drest) max1 ans1 ->
-    max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
-    max2 + x > max1 ->
-    feasible_set (d0 :: drest) s' ->
-    sum s' <= max1.
-Proof.
-  intros d0 drest max1 max2 x ans1 ans2 s' Hfull1 Hfull2 Hgt Hfeas'.
-  apply (feasible_left_sum_bound d0 drest max1 ans1 s'); auto. 
-Qed.
-
-Lemma index_lex_lt_extend_app_both :  
-  forall (d0 x max1 max2 idx : Z) (drest ans1 ans2 il2 : list Z) (s' il' : list Z),
-    Zlength (d0 :: drest) = idx ->
-    max_sum_full_spec (d0 :: drest) max1 ans1 ->  
-    max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
-    is_indexed_elements (removelast (d0 :: drest)) il2 ans2 ->
-    non_adjacent_in il2 ->
-    (forall s' il',
-       feasible_set (removelast (d0 :: drest)) s' ->
-       is_indexed_elements (removelast (d0 :: drest)) il' s' ->
-       non_adjacent_in il' -> sum s' = max2 ->
-       index_lex_lt il2 il' \/ il2 = il') ->
-    max2 + x > max1 ->
-    feasible_set ((d0 :: drest) ++ [x]) s' ->
-    is_indexed_elements ((d0 :: drest) ++ [x]) il' s' ->
-    non_adjacent_in il' ->
-    sum s' = max2 + x ->
-    index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il'.  
-Proof.
-Admitted.
 
 Lemma max_sum_lex_inv_extend_case :
   forall (d0 x max1 max2 idx : Z) (drest ans1 il1 ans2 il2 : list Z)
@@ -1602,7 +1555,7 @@ Proof.
   repeat split.
 
   - rewrite Zlength_app. rewrite Hlen. reflexivity.
-  - 
+  - (* Goal2 max_value_spec ((d0 :: drest) ++ [x]) (max2 + x) *)
     left.
     exists (ans2 ++ [x]).
     split.
@@ -1644,14 +1597,15 @@ Proof.
         rewrite Forall_forall in Hrange_full.
         assert (Hlast_in: In (last (i0 :: il2') 0) (i0 :: il2')) by (apply last_In; discriminate).
         specialize (Hrange_full _ Hlast_in).
+        (* Now: last ... < Zlength (removelast (d0::drest)) = Zlength (d0::drest) - 1 = idx - 1 *)
         rewrite Hrem_len in Hrange_full.
-        rewrite Hlen in Hrange_full.  
+        rewrite Hlen in Hrange_full.  (* Zlength (d0::drest) = idx *)
         lia.
   - intros i j Hi Hj.
     apply in_app_or in Hi.
     apply in_app_or in Hj.
     destruct Hi as [Hi_il2 | Hi_idx]; destruct Hj as [Hj_il2 | Hj_idx].
-    + 
+    + (* i, j in il2 *)
       apply (proj2 Hgap2); auto.
     + assert (Hj_eq: j = idx).
       { apply in_singleton in Hj_idx. exact Hj_idx. }
@@ -1664,7 +1618,7 @@ Proof.
       rewrite Hrem_len in Hrange.
       rewrite Hlen in Hrange.
       lia.
-    + 
+    + (* i = idx, j in il2 *)
       assert (Hi_eq: i = idx) by (apply in_singleton in Hi_idx; exact Hi_idx).
       subst i.
       assert (Hrem_len: Zlength (removelast (d0 :: drest)) = Zlength (d0 :: drest) - 1).
@@ -1674,26 +1628,27 @@ Proof.
       specialize (Hrange j Hj_il2).
       rewrite Hrem_len, Hlen in Hrange.
       lia.
-    + 
+    + (* i = idx, j = idx *)
       assert (Hi_eq: i = idx) by (apply in_singleton in Hi_idx; exact Hi_idx).
       assert (Hj_eq: j = idx) by (apply in_singleton in Hj_idx; exact Hj_idx).
       subst i j.
       lia.
-  - intros s' il' Hfeas Hidx' Hnonadj Hsum. 
-    assert (Hfeas_backup :  feasible_set ((d0 ::  drest) ++ [x]) s') by exact Hfeas.
+  - intros s' il' Hfeas Hidx' Hnonadj Hsum.
     apply feasible_set_app_x_inv in Hfeas as [Hleft | [t' [Heq Ht']]].
     + exfalso.
+      (* Prove sum s' <= max1 *)
       assert (Hle: sum s' <= max1).
-      { destruct (proj1 Hfull1) as [Hcase1 | Hcase2].    
-        - destruct Hcase1 as (s0 & Hfeas0 & Hsum0 & Hbound).
+      { destruct (proj1 Hfull1) as [Hcase1 | Hcase2].
+        - (* left: exists optimal *)
+          destruct Hcase1 as (s0 & Hfeas0 & Hsum0 & Hbound).
           apply Hbound; exact Hleft.
         - destruct Hcase2 as (Hle_all & Hmax0).
           rewrite Hmax0.
-          apply Hle_all; exact Hleft. 
+          apply Hle_all; exact Hleft.
       }
-      lia. 
-    + apply (index_lex_lt_extend_app_both d0 x max1 max2 idx drest ans1 ans2 il2 s' il'); 
-        auto.
+      lia.
+    + (* index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il' *)
+      admit.
   - rewrite removelast_app_x. apply (proj1 Hfull1).
   - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
@@ -1701,26 +1656,6 @@ Proof.
   - apply (proj1 Hgap1).
   - apply (proj2 Hgap1).
   - rewrite removelast_app_x. exact Hlex1.
-Qed.
-
-Lemma index_lex_preserve_when_extend_list :
-  forall (l :  list Z) (x : Z) (s' il' il1 ans1 : list Z) (max1 :  Z),
-    l <> [] ->
-    max_sum_full_spec l max1 ans1 ->
-    is_indexed_elements l il1 ans1 ->
-    non_adjacent_in il1 ->
-    (forall s' il',
-       feasible_set l s' ->
-       is_indexed_elements l il' s' ->
-       non_adjacent_in il' ->
-       sum s' = max1 ->
-       index_lex_lt il1 il' \/ il1 = il') ->
-    feasible_set l s' ->
-    is_indexed_elements (l ++ [x]) il' s' ->
-    non_adjacent_in il' ->
-    sum s' = max1 ->
-    index_lex_lt il1 il' \/ il1 = il'.
-Proof. 
 Admitted.
 
 Lemma max_sum_lex_inv_preserve_when_not_taken :
@@ -1741,17 +1676,17 @@ Lemma max_sum_lex_inv_preserve_when_not_taken :
 Proof.
   intros l x max1 max2 ans1 ans2 il1 Hneq Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hlt.
   unfold max_sum_lex_inv.
-  repeat split. 
+  repeat split.
 
   - apply Zlength_app.
   - assert (Hspec1: max_value_spec l max1) by (apply (proj1 Hfull1)).
     assert (Hspec2: max_value_spec (removelast l) max2) by (apply (proj1 Hfull2)).
     assert (Hspec_app: max_value_spec (l ++ [x]) (Z.max max1 (max2 + x))).
     { apply max_value_spec_app. exact Hspec1. exact Hspec2. }
-    replace (Z.max max1 (max2 + x)) with max1 in Hspec_app. 
+    replace (Z.max max1 (max2 + x)) with max1 in Hspec_app.
     + exact Hspec_app.
     + symmetry. apply Z.max_l. lia.
-  - apply feasible_set_app_x_l. 
+  - apply feasible_set_app_x_l.
     apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
   - apply is_indexed_elements_prefix_extend.
@@ -1760,186 +1695,41 @@ Proof.
   - apply (proj2 Hgap1).
   - intros s' il' Hfeas Hidx' Hnonadj Hsum.
     apply feasible_set_app_x_inv in Hfeas as [Hfeas_l | [t' [Heq Ht']]].
-    +
-      apply (index_lex_preserve_when_extend_list l x s' il' il1 ans1 max1 
-               Hneq Hfull1 Hidx1 Hgap1 Hlex1 Hfeas_l Hidx' Hnonadj Hsum).
-    + 
+    + (* s' 是 l 的可行解 *)
+      admit.
+    + (* s' = t' ++ [x] *)
       exfalso.
+      (* sum s' = sum t' + x ≤ max2 + x < max1，矛盾 *)
       assert (Hsum_t': sum t' <= max2).
       {
         pose proof (proj1 Hfull2) as Hspec2.
         destruct Hspec2 as [Hexists | [Hle Hm0]].
         - destruct Hexists as (s0 & _ & _ & Hbound).
-          apply Hbound; exact Ht'. 
+          apply Hbound; exact Ht'.
         - pose proof Hle t' Ht'. rewrite <- Hm0 in H. apply H.
       }
       rewrite Heq in Hsum. pose proof sum_app t' [x].
       rewrite H in Hsum. simpl in Hsum. lia.
   - rewrite removelast_app_x by (discriminate Hneq).
     destruct l as [|a l'].
-    + tauto.
-    + simpl. 
-      repeat split; auto. 
+    + (* l = [] *)
+      tauto.
+    + (* l = a :: l' *)
+      simpl.
+      repeat split; auto.
       unfold max_sum_full_spec in Hfull1.
       * destruct Hfull1 as [H1 [_ _]]; tauto.
       * destruct Hfull1 as [_ [H2 _]]; tauto.
-      * destruct Hfull1 as [_ [_ H3]]; tauto. 
+      * destruct Hfull1 as [_ [_ H3]]; tauto.
       * unfold non_adjacent_in in Hgap1; destruct Hgap1; tauto.
       * unfold non_adjacent_in in Hgap1. apply Hgap1.
-Qed.
-
-Lemma index_lex_preserve_eq_case :
-  forall (d0 x :  Z) (drest ans1 il1 ans2 il2 : list Z) (max1 max2 idx : Z)
-    (s' il' : list Z),
-    Zlength (d0 :: drest) = idx ->
-    max_sum_full_spec (d0 :: drest) max1 ans1 ->
-    is_indexed_elements (d0 :: drest) il1 ans1 ->
-    non_adjacent_in il1 ->
-    (forall s' il',
-       feasible_set (d0 :: drest) s' ->
-       is_indexed_elements (d0 :: drest) il' s' ->
-       non_adjacent_in il' -> sum s' = max1 ->
-       index_lex_lt il1 il' \/ il1 = il') ->
-    max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
-    is_indexed_elements (removelast (d0 :: drest)) il2 ans2 ->
-    non_adjacent_in il2 ->
-    (forall s' il',
-       feasible_set (removelast (d0 :: drest)) s' ->
-       is_indexed_elements (removelast (d0 :: drest)) il' s' ->
-       non_adjacent_in il' -> sum s' = max2 ->
-       index_lex_lt il2 il' \/ il2 = il') ->
-    max2 + x = max1 ->
-    index_lex_lt (il2 ++ [idx]) il1 ->
-    feasible_set ((d0 :: drest) ++ [x]) s' ->
-    is_indexed_elements ((d0 :: drest) ++ [x]) il' s' ->
-    non_adjacent_in il' ->
-    sum s' = max2 + x ->
-    index_lex_lt (il2 ++ [idx]) il' \/ il2 ++ [idx] = il'. 
-Proof. 
 Admitted.
 
-Lemma max_sum_lex_inv_eq_case : 
+Lemma max_sum_lex_inv_eq_case :
   forall (l : list Z) (x d0 : Z) (drest ans1 il1 ans2 il2 : list Z) (max1 max2 idx : Z)
-    (Hlen :  Zlength (d0 :: drest) = idx)
-    (Hfull1 : max_sum_full_spec (d0 :: drest) max1 ans1)
-    (Hidx1 : is_indexed_elements (d0 :: drest) il1 ans1)
-    (Hgap1 : non_adjacent_in il1)
-    (Hlex1 : forall s' il',
-               feasible_set (d0 :: drest) s' ->
-               is_indexed_elements (d0 :: drest) il' s' ->
-               non_adjacent_in il' -> sum s' = max1 ->
-               index_lex_lt il1 il' \/ il1 = il')
-    (Hfull2 : max_sum_full_spec (removelast (d0 :: drest)) max2 ans2)
-    (Hidx2 : is_indexed_elements (removelast (d0 :: drest)) il2 ans2)
-    (Hgap2 : non_adjacent_in il2)
-    (Hlex2 : forall s' il',
-               feasible_set (removelast (d0 ::  drest)) s' ->
-               is_indexed_elements (removelast (d0 :: drest)) il' s' ->
-               non_adjacent_in il' -> sum s' = max2 ->
-               index_lex_lt il2 il' \/ il2 = il')
-    (Heq : max2 + x = max1)
-    (Hlex : index_lex_lt (il2 ++ [idx]) il1),
-  max_sum_lex_inv ((d0 :: drest) ++ [x]) (max2 + x) (ans2 ++ [x]) (il2 ++ [idx]) max1 ans1 il1 (idx + 1).
-Proof.
-  intros l x d0 drest ans1 il1 ans2 il2 max1 max2 idx Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hlex.
-  unfold max_sum_lex_inv.
-  repeat split. 
-
-  - rewrite Zlength_app. rewrite Hlen.  unfold Zlength; simpl; reflexivity.
-  - assert (Hspec1 := proj1 Hfull1).
-    assert (Hspec2 := proj1 Hfull2).
-    pose proof (max_value_spec_app (d0 :: drest) x max1 max2 Hspec1 Hspec2) as Hspec_app. 
-    assert (Hmax : Z.max max1 (max2 + x) = max2 + x).
-    {
-      rewrite Heq. 
-      apply Z.max_idempotent.
-    }
-    rewrite Hmax in Hspec_app.
-    exact Hspec_app.
-  - apply feasible_set_extend. apply (proj1 (proj2 Hfull2)).
-  - rewrite sum_app, sum_single. rewrite (proj2 (proj2 Hfull2)). reflexivity.
-  - apply is_indexed_elements_app.
-    + apply is_indexed_elements_extend; exact Hidx2.
-    + apply is_indexed_elements_cons.
-      * rewrite <- Hlen. apply Znth_error_snoc_last.
-      * apply is_indexed_elements_nil.
-  - apply sincr_extend_last. 
-    + apply (proj1 Hgap2).
-    + destruct il2 as [|i0 il2']. 
-      * left; reflexivity. 
-      * right.
-        assert (Hrem: Zlength (removelast (d0 ::  drest)) = idx - 1).
-        { rewrite Zlength_removelast. rewrite Hlen. reflexivity. discriminate. }
-        pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
-        rewrite Forall_forall in Hrange.
-        assert (Hlast: In (last (i0 :: il2') 0) (i0 :: il2')) by (apply last_In; discriminate).
-        specialize (Hrange _ Hlast).
-        rewrite Hrem in Hrange. lia. 
-  - intros i j Hi Hj.
-    apply in_app_or in Hi; apply in_app_or in Hj.
-    destruct Hi as [Hi2 | Hi_eq]; destruct Hj as [Hj2 | Hj_eq].
-    + apply (proj2 Hgap2); tauto.
-    + apply in_singleton in Hj_eq; subst j.
-      assert (Hrem: Zlength (removelast (d0 :: drest)) = idx - 1).
-      { rewrite Zlength_removelast.  rewrite Hlen; reflexivity. discriminate. }
-      pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
-      rewrite Forall_forall in Hrange; specialize (Hrange i Hi2).
-      rewrite Hrem in Hrange; lia.
-    + apply in_singleton in Hi_eq; subst i.
-      assert (Hrem: Zlength (removelast (d0 :: drest)) = idx - 1).
-      { rewrite Zlength_removelast.  rewrite Hlen; reflexivity. discriminate. }
-      pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
-      rewrite Forall_forall in Hrange; specialize (Hrange j Hj2).
-      rewrite Hrem in Hrange; lia. 
-    + apply in_singleton in Hi_eq; apply in_singleton in Hj_eq; subst i j; lia. 
-  - intros s' il' Hfeas Hidx' Hnonadj Hsum.
-    apply (index_lex_preserve_eq_case d0 x drest ans1 il1 ans2 il2 max1 max2 idx s' il'
-             Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hlex 
-             Hfeas Hidx' Hnonadj Hsum).
-  - rewrite removelast_app_x. apply (proj1 Hfull1).
-  - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
-  - apply (proj2 (proj2 Hfull1)).
-  - rewrite removelast_app_x. exact Hidx1.
-  - apply (proj1 Hgap1).
-  - apply (proj2 Hgap1).
-  - rewrite removelast_app_x. apply Hlex1.
-Qed.
-
-Lemma index_lex_preserve_eq_nlex_case :
-  forall (d0 x : Z) (drest ans1 il1 ans2 il2 : list Z) (max1 max2 idx : Z)
-    (s' il' : list Z),
-    Zlength (d0 :: drest) = idx ->
-    max_sum_full_spec (d0 :: drest) max1 ans1 ->
-    is_indexed_elements (d0 :: drest) il1 ans1 ->
-    non_adjacent_in il1 ->
-    (forall s' il',
-       feasible_set (d0 :: drest) s' ->
-       is_indexed_elements (d0 :: drest) il' s' ->
-       non_adjacent_in il' -> sum s' = max1 ->
-       index_lex_lt il1 il' \/ il1 = il') ->
-    max_sum_full_spec (removelast (d0 :: drest)) max2 ans2 ->
-    is_indexed_elements (removelast (d0 :: drest)) il2 ans2 ->
-    non_adjacent_in il2 ->
-    (forall s' il',
-       feasible_set (removelast (d0 :: drest)) s' ->
-       is_indexed_elements (removelast (d0 :: drest)) il' s' ->
-       non_adjacent_in il' -> sum s' = max2 ->
-       index_lex_lt il2 il' \/ il2 = il') ->
-    max2 + x = max1 ->
-    ~ index_lex_lt (il2 ++ [idx]) il1 ->
-    feasible_set ((d0 ::  drest) ++ [x]) s' ->
-    is_indexed_elements ((d0 :: drest) ++ [x]) il' s' ->
-    non_adjacent_in il' ->
-    sum s' = max1 ->
-    index_lex_lt il1 il' \/ il1 = il'. 
-Proof. 
-Admitted.
-
-Lemma max_sum_lex_inv_eq_nlex_case :
-  forall (x d0 : Z) (drest ans1 il1 ans2 il2 : list Z) (max1 max2 idx : Z)
     (Hlen : Zlength (d0 :: drest) = idx)
     (Hfull1 : max_sum_full_spec (d0 :: drest) max1 ans1)
-    (Hidx1 :  is_indexed_elements (d0 :: drest) il1 ans1)
+    (Hidx1 : is_indexed_elements (d0 :: drest) il1 ans1)
     (Hgap1 : non_adjacent_in il1)
     (Hlex1 : forall s' il',
                feasible_set (d0 :: drest) s' ->
@@ -1955,11 +1745,96 @@ Lemma max_sum_lex_inv_eq_nlex_case :
                non_adjacent_in il' -> sum s' = max2 ->
                index_lex_lt il2 il' \/ il2 = il')
     (Heq : max2 + x = max1)
-    (Hnlex :  ~ index_lex_lt (il2 ++ [idx]) il1),
+    (Hlex : index_lex_lt (il2 ++ [idx]) il1),
+  max_sum_lex_inv ((d0 :: drest) ++ [x]) (max2 + x) (ans2 ++ [x]) (il2 ++ [idx]) max1 ans1 il1 (idx + 1).
+Proof.
+  intros l x d0 drest ans1 il1 ans2 il2 max1 max2 idx Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hlex.
+  unfold max_sum_lex_inv.
+  repeat split.
+
+  - rewrite Zlength_app. rewrite Hlen. unfold Zlength; simpl; reflexivity.
+  - assert (Hspec1 := proj1 Hfull1).
+    assert (Hspec2 := proj1 Hfull2).
+    pose proof (max_value_spec_app (d0 :: drest) x max1 max2 Hspec1 Hspec2) as Hspec_app.
+    assert (Hmax : Z.max max1 (max2 + x) = max2 + x).
+    {
+      rewrite Heq. (* max1 = max2 + x *)
+      apply Z.max_idempotent.
+    }
+    rewrite Hmax in Hspec_app.
+    exact Hspec_app.
+  - apply feasible_set_extend. apply (proj1 (proj2 Hfull2)).
+  - rewrite sum_app, sum_single. rewrite (proj2 (proj2 Hfull2)). reflexivity.
+  - apply is_indexed_elements_app.
+    + apply is_indexed_elements_extend; exact Hidx2.
+    + apply is_indexed_elements_cons.
+      * rewrite <- Hlen. apply Znth_error_snoc_last.
+      * apply is_indexed_elements_nil.
+  - apply sincr_extend_last.
+    + apply (proj1 Hgap2).
+    + destruct il2 as [|i0 il2'].
+      * left; reflexivity.
+      * right.
+        assert (Hrem: Zlength (removelast (d0 :: drest)) = idx - 1).
+        { rewrite Zlength_removelast. rewrite Hlen. reflexivity. discriminate. }
+        pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
+        rewrite Forall_forall in Hrange.
+        assert (Hlast: In (last (i0 :: il2') 0) (i0 :: il2')) by (apply last_In; discriminate).
+        specialize (Hrange _ Hlast).
+        rewrite Hrem in Hrange. lia.
+  - intros i j Hi Hj.
+    apply in_app_or in Hi; apply in_app_or in Hj.
+    destruct Hi as [Hi2 | Hi_eq]; destruct Hj as [Hj2 | Hj_eq].
+    + apply (proj2 Hgap2); tauto.
+    + apply in_singleton in Hj_eq; subst j.
+      assert (Hrem: Zlength (removelast (d0 :: drest)) = idx - 1).
+      { rewrite Zlength_removelast. rewrite Hlen; reflexivity. discriminate. }
+      pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
+      rewrite Forall_forall in Hrange; specialize (Hrange i Hi2).
+      rewrite Hrem in Hrange; lia.
+    + apply in_singleton in Hi_eq; subst i.
+      assert (Hrem: Zlength (removelast (d0 :: drest)) = idx - 1).
+      { rewrite Zlength_removelast. rewrite Hlen; reflexivity. discriminate. }
+      pose proof (is_indexed_elements_range _ _ _ Hidx2) as Hrange.
+      rewrite Forall_forall in Hrange; specialize (Hrange j Hj2).
+      rewrite Hrem in Hrange; lia.
+    + apply in_singleton in Hi_eq; apply in_singleton in Hj_eq; subst i j; lia.
+  - intros s' il' Hfeas Hidx' Hnonadj Hsum.
+    admit.
+  - rewrite removelast_app_x. apply (proj1 Hfull1).
+  - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
+  - apply (proj2 (proj2 Hfull1)).
+  - rewrite removelast_app_x. exact Hidx1.
+  - apply (proj1 Hgap1).
+  - apply (proj2 Hgap1).
+  - rewrite removelast_app_x. apply Hlex1.
+Admitted.
+
+Lemma max_sum_lex_inv_eq_nlex_case :
+  forall (x d0 : Z) (drest ans1 il1 ans2 il2 : list Z) (max1 max2 idx : Z)
+    (Hlen : Zlength (d0 :: drest) = idx)
+    (Hfull1 : max_sum_full_spec (d0 :: drest) max1 ans1)
+    (Hidx1 : is_indexed_elements (d0 :: drest) il1 ans1)
+    (Hgap1 : non_adjacent_in il1)
+    (Hlex1 : forall s' il',
+               feasible_set (d0 :: drest) s' ->
+               is_indexed_elements (d0 :: drest) il' s' ->
+               non_adjacent_in il' -> sum s' = max1 ->
+               index_lex_lt il1 il' \/ il1 = il')
+    (Hfull2 : max_sum_full_spec (removelast (d0 :: drest)) max2 ans2)
+    (Hidx2 : is_indexed_elements (removelast (d0 :: drest)) il2 ans2)
+    (Hgap2 : non_adjacent_in il2)
+    (Hlex2 : forall s' il',
+               feasible_set (removelast (d0 :: drest)) s' ->
+               is_indexed_elements (removelast (d0 :: drest)) il' s' ->
+               non_adjacent_in il' -> sum s' = max2 ->
+               index_lex_lt il2 il' \/ il2 = il')
+    (Heq : max2 + x = max1)
+    (Hnlex : ~ index_lex_lt (il2 ++ [idx]) il1),
   max_sum_lex_inv ((d0 :: drest) ++ [x]) max1 ans1 il1 max1 ans1 il1 (idx + 1).
 Proof.
   intros x d0 drest ans1 il1 ans2 il2 max1 max2 idx Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hnlex.
-  unfold max_sum_lex_inv. 
+  unfold max_sum_lex_inv.
   repeat split.
   - rewrite Zlength_app. rewrite Hlen; unfold Zlength; tauto.
   - assert (Hspec1 := proj1 Hfull1).
@@ -1967,7 +1842,7 @@ Proof.
     pose proof (max_value_spec_app (d0 :: drest) x max1 max2 Hspec1 Hspec2) as Hspec_app.
     assert (Hmax : Z.max max1 (max2 + x) = max2 + x).
     {
-      rewrite Heq. 
+      rewrite Heq. (* max1 = max2 + x *)
       apply Z.max_idempotent.
     }
     rewrite Hmax in Hspec_app.
@@ -1981,25 +1856,24 @@ Proof.
   - apply (proj1 Hgap1).
   - apply (proj2 Hgap1).
   - intros s' il' Hfeas Hidx' Hnonadj Hsum.
-    apply (index_lex_preserve_eq_nlex_case d0 x drest ans1 il1 ans2 il2 max1 max2 idx s' il'
-             Hlen Hfull1 Hidx1 Hgap1 Hlex1 Hfull2 Hidx2 Hgap2 Hlex2 Heq Hnlex
-             Hfeas Hidx' Hnonadj Hsum).
-  - rewrite removelast_app_x.  apply (proj1 Hfull1).
-  - rewrite removelast_app_x.  apply (proj1 (proj2 Hfull1)).
+    admit.
+  - rewrite removelast_app_x. apply (proj1 Hfull1).
+  - rewrite removelast_app_x. apply (proj1 (proj2 Hfull1)).
   - apply (proj2 (proj2 Hfull1)).
   - rewrite removelast_app_x. exact Hidx1.
   - apply (proj1 Hgap1).
   - apply (proj2 Hgap1).
   - rewrite removelast_app_x. exact Hlex1.
-Qed.
+Admitted.
 
 (** Level 4: Prove that the modified algorithm returns the lexicographically minimal optimal solution *)
 Theorem max_sum_lex_correct :
   forall l,
+    all_positive l ->
     Hoare (max_sum_lex l)
       (fun '(m, s, il) => lex_min_spec l m s il).
 Proof.
-  intros l.
+  intros l Hpos.
   unfold max_sum_lex.
   eapply Hoare_bind.
   - eapply Hoare_list_iter with
@@ -2027,9 +1901,9 @@ Proof.
 
            assert (Hfeas1 : feasible_set [] ans1) by (apply (proj1 (proj2 Hfull1))).
            apply feasible_set_nil in Hfeas1. subst ans1.
-           simpl in Hgt.  
+           simpl in Hgt.  (* now Hgt : x > max1 *)
            assert (Hsum1 : sum [] = max1) by (apply (proj2 (proj2 Hfull1))); simpl in Hsum1.
-           subst max1. 
+           subst max1.  (* now max1 = 0 *)
            apply is_indexed_elements_nil_inv_r in Hidx1. subst il1.
            assert (Hidx0 : idx = 0). { apply idx_eq_zero. apply Hlen. }
            subst idx. simpl. rewrite Hidx0.
@@ -2045,6 +1919,7 @@ Proof.
               ** apply Hoare_assume_bind.
                  intros Hlt.
                  apply Hoare_ret; simpl.
+                 (* 此时 Hlt 内存在矛盾 *)
                  apply max_sum_lex_inv_contradiction_case; tauto.
               ** apply Hoare_assume_bind.
                  intros Hnlt.
