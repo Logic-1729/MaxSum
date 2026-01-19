@@ -129,37 +129,37 @@ Definition max_sum_lex_inv (done: list Z) ... : Prop := ...
 
 接下来简单介绍我们在证明第四档难度的过程中定义并证明一些辅助引理：
 
-`proof_il'_nil`：证明空列表`[]`的唯一可行解是`s' = []`，其索引列表必为`[]`，用于处理归纳基础时，确保索引列表正确。
+* `proof_il'_nil`：证明空列表`[]`的唯一可行解是`s' = []`，其索引列表必为`[]`，用于处理归纳基础时，确保索引列表正确。
 
-`idx_eq_zero`：证明空列表`[]`长度为 0 ，故初始索引`idx = 0`，验证不变式在基础情况时成立。
+* `idx_eq_zero`：证明空列表`[]`长度为 0 ，故初始索引`idx = 0`，验证不变式在基础情况时成立。
 
-`In_0_non_adjacent`：证明单元素索引列表`[0]`满足互不相邻（只有一个元素，无相邻对），验证单元素解的可行性。
+* `In_0_non_adjacent`：证明单元素索引列表`[0]`满足互不相邻（只有一个元素，无相邻对），验证单元素解的可行性。
 
-`is_indexed_elements_restrict`：证明若`s`是`l ++ [x]`的子序列，且其索引均在`l`范围内，则`s`也是`l`的子序列，以确保在“不取新元素”的分支中，确保旧解`ans1`仍是新列表的子序列。
+* `is_indexed_elements_restrict`：证明若`s`是`l ++ [x]`的子序列，且其索引均在`l`范围内，则`s`也是`l`的子序列，以确保在“不取新元素”的分支中，确保旧解`ans1`仍是新列表的子序列。
 
-`in_singleton`：证明单元素列表的成员关系等价于相等，简化索引列表的推理，如`[0]`中只有元素`0`。
+* `in_singleton`：证明单元素列表的成员关系等价于相等，简化索引列表的推理，如`[0]`中只有元素`0`。
 
-`max_sum_full_spec_inv`：证明`max_sum_full_spec`蕴含其三个组成部分，满足`max_value_spec`, `feasible_set`, `sum`。
+* `max_sum_full_spec_inv`：证明`max_sum_full_spec`蕴含其三个组成部分，满足`max_value_spec`, `feasible_set`, `sum`。
 
-`feasible_single`：证明单元素列表`[x]`的可行解是`[x]`，其索引是`[0]`，用于处理单元素输入的基础情况。
+* `feasible_single`：证明单元素列表`[x]`的可行解是`[x]`，其索引是`[0]`，用于处理单元素输入的基础情况。
 
-`max_value_spec_single_positive`：证明若`x > 0`则`[x]`的最大和必为`x`（取该元素本身），用于在`all_positive`的假设下单元素解必取该元素。
+* `max_value_spec_single_positive`：证明若`x > 0`则`[x]`的最大和必为`x`（取该元素本身），用于在`all_positive`的假设下单元素解必取该元素。
 
-`Zlength_removelast`：证明非空列表去掉末尾元素后长度减 1，用于维护索引计数器`idx`与列表长度的一致性。
+* `Zlength_removelast`：证明非空列表去掉末尾元素后长度减 1，用于维护索引计数器`idx`与列表长度的一致性。
 
-`max_sum_lex_inv_single_positive`：证明当输入为`[x]`且`x > 0`时，算法状态`(x, [x], [0], 0, [], []. 1)`满足不变式，关键步骤为取`x`（因`x > 0 = max1`），新索引列表为`[0]`（因`idx = 0`），且`ans2 = []`, `il2 = []`（因`removelast [x] = []`），用于验证归纳基础。
+* `max_sum_lex_inv_single_positive`：证明当输入为`[x]`且`x > 0`时，算法状态`(x, [x], [0], 0, [], []. 1)`满足不变式，关键步骤为取`x`（因`x > 0 = max1`），新索引列表为`[0]`（因`idx = 0`），且`ans2 = []`, `il2 = []`（因`removelast [x] = []`），用于验证归纳基础。
 
 其他单元素引理（`max_sum_lex_inv_single_case`, `max_sum_lex_inv_contradiction_case`, `max_sum_lex_inv_valid_case`）：覆盖了单元素输入的所有分支（`x < max1`, `x = max1`且字典序比较），完备处理了归纳基础情况。
 
-`max_sum_lex_inv_extend_case`：证明当`max2 + x > max1`时，取新元素`x`，新状态满足不变式，其中的关键在于验证可行性，即`ans2 ++ [x]`是`(d0::drest)++[x]`的可行解（需`feasible_set_app_x_r`），以及字典序最小性（因和更大，无需比较字典序），用于处理“必须取”的分支。
+* `max_sum_lex_inv_extend_case`：证明当`max2 + x > max1`时，取新元素`x`，新状态满足不变式，其中的关键在于验证可行性，即`ans2 ++ [x]`是`(d0::drest)++[x]`的可行解（需`feasible_set_app_x_r`），以及字典序最小性（因和更大，无需比较字典序），用于处理“必须取”的分支。
 
-`max_sum_lex_inv_preserve_when_not_taken`：证明当`max2 + x < max1`时，不取`x`，旧解`ans1`仍是新列表的最优解，其中的关键在于验证可行性（由`feasible_set_preserved`保证），以及字典序最小性（因和更大，旧解仍最优且字典序最小），用于处理“必须不取”的分支。
+* `max_sum_lex_inv_preserve_when_not_taken`：证明当`max2 + x < max1`时，不取`x`，旧解`ans1`仍是新列表的最优解，其中的关键在于验证可行性（由`feasible_set_preserved`保证），以及字典序最小性（因和更大，旧解仍最优且字典序最小），用于处理“必须不取”的分支。
 
-`max_sum_lex_inv_eq_case`, `max_sum_lex_inv_eq_nlex_case`：证明(`eq_case`)当和相等且`il2 ++ [idx]`$<_{\text{lex}}$`il1`时，取新解，(`eq_nlex_case`)否则保留旧解。
+* `max_sum_lex_inv_eq_case`, `max_sum_lex_inv_eq_nlex_case`：证明(`eq_case`)当和相等且`il2 ++ [idx]`$<_{\text{lex}}$`il1`时，取新解，(`eq_nlex_case`)否则保留旧解。
 
 以上四个引理均为索引序列递推过程（归纳步骤核心）的引理，我们在证明字典序保持不变的过程中遇到了一些困难，存在着一些情况相似的`admit`情况。
 
-`max_sum_lex_correct`：算法正确性验证，定义如下：
+* `max_sum_lex_correct`：算法正确性验证，定义如下：
 ```
 Theorem max_sum_lex_correct: 
   forall l, 
